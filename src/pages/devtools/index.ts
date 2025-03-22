@@ -3,17 +3,16 @@ import Browser from 'webextension-polyfill';
 Browser.devtools.panels.create('Dev Tools', 'icon-32.png', 'src/pages/devtools/index.html').catch(console.error);
 
 let port = chrome.runtime.connect({ name: 'devtools' });
-let messagesList = document.getElementById('messages');
-let clearButton = document.getElementById('clear');
+let messagesList = document.getElementById('messages') as HTMLUListElement;
+let clearButton = document.getElementById('clear') as HTMLButtonElement;
 
-// Connect and initialize
 port.postMessage({ action: 'attachDebugger' });
 port.postMessage({ action: 'getMessages' });
 
 port.onMessage.addListener(function(response) {
 	if (response.messages) {
 		messagesList.innerHTML = '';
-		response.messages.forEach(function(message) {
+		response.messages.forEach(function(message: any) {
 			let listItem = document.createElement('li');
 
 			// Create message direction indicator
