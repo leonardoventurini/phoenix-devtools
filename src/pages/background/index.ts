@@ -6,11 +6,17 @@ chrome.debugger.onEvent.addListener(function(debuggeeId, method, params: any) {
 			messages.push({ method, data });
 			chrome.storage.local.set({ websocketMessages: messages });
 		});
+	} else if (method === 'Network.requestWillBeSent' || method === 'Network.responseReceived') {
+		chrome.storage.local.get([ 'httpMessages' ], function(result) {
+			let messages = result.httpMessages || [];
+			messages.push({ method, data: JSON.stringify(params) });
+			chrome.storage.local.set({ httpMessages: messages });
+		});
 	}
 });
 
 chrome.debugger.onDetach.addListener(function(debuggeeId, reason) {
-	chrome.storage.local.set({ websocketMessages: [] });
+	chrome.storage.local.set({ websocketMessages: [], httpMessages: [] });
 });
 
 chrome.runtime.onConnect.addListener(function(port) {
@@ -32,11 +38,14 @@ chrome.runtime.onConnect.addListener(function(port) {
 					}
 				});
 			} else if (request.action === 'getMessages') {
-				chrome.storage.local.get([ 'websocketMessages' ], function(result) {
-					port.postMessage({ messages: result.websocketMessages || [] });
+				chrome.storage.local.get([ 'websocketMessages', 'httpMessages' ], function(result) {
+					port.postMessage({ 
+						messages: result.websocketMessages || [],
+						httpMessages: result.httpMessages || [] 
+					});
 				});
 			} else if (request.action === 'clearMessages') {
-				chrome.storage.local.set({ websocketMessages: [] });
+				chrome.storage.local.set({ websocketMessages: [], httpMessages: [] });
 			}
 		});
 	}
