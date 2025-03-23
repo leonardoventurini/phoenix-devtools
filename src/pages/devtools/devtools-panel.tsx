@@ -15,11 +15,15 @@ interface PortResponse {
   httpMessages?: Message[];
 }
 
-export function DevTools() {
+export function DevToolsPanel() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [httpMessages, setHttpMessages] = useState<Message[]>([]);
   const [activeTab, setActiveTab] = useState<'websocket' | 'http'>('websocket');
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth - 40, height: window.innerHeight - 100 });
+  
+  // Create reversed message arrays for display (newest first)
+  const reversedMessages = useMemo(() => [...messages].reverse(), [messages]);
+  const reversedHttpMessages = useMemo(() => [...httpMessages].reverse(), [httpMessages]);
   
   useEffect(() => {
     const port = Browser.runtime.connect({ name: 'devtools' });
@@ -81,7 +85,7 @@ export function DevTools() {
 
   // Row renderer for virtualized list - WebSocket messages
   const WebSocketRow = ({ index, style }: { index: number, style: React.CSSProperties }) => {
-    const message = messages[index];
+    const message = reversedMessages[index];
     const isReceived = message.method === 'Network.webSocketFrameReceived';
     
     return (
@@ -118,7 +122,7 @@ export function DevTools() {
 
   // Row renderer for virtualized list - HTTP messages
   const HttpRow = ({ index, style }: { index: number, style: React.CSSProperties }) => {
-    const message = httpMessages[index];
+    const message = reversedHttpMessages[index];
     const isRequest = message.method === 'Network.requestWillBeSent';
     
     let parsedData;
@@ -225,7 +229,7 @@ export function DevTools() {
                 className="rounded-md"
                 height={windowSize.height}
                 width={windowSize.width}
-                itemCount={messages.length}
+                itemCount={reversedMessages.length}
                 itemSize={70}
               >
                 {WebSocketRow}
@@ -249,7 +253,7 @@ export function DevTools() {
                 className="rounded-md"
                 height={windowSize.height}
                 width={windowSize.width}
-                itemCount={httpMessages.length}
+                itemCount={reversedHttpMessages.length}
                 itemSize={70}
               >
                 {HttpRow}
