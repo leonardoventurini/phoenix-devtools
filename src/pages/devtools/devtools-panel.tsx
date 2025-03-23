@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useMemo, ComponentType } from 'react';
 import Browser from 'webextension-polyfill';
 import { FixedSizeList as _FixedSizeList, FixedSizeListProps } from 'react-window';
+import { motion } from 'framer-motion';
+import { md5 } from '@src/utils/md5';
 
 // Fix for React 18 TypeScript compatibility issue
 const List = _FixedSizeList as ComponentType<FixedSizeListProps>;
@@ -8,6 +10,7 @@ const List = _FixedSizeList as ComponentType<FixedSizeListProps>;
 interface Message {
   method: string;
   data: string;
+  hash: string;
 }
 
 interface PortResponse {
@@ -33,18 +36,15 @@ export function DevToolsPanel() {
     
     port.onMessage.addListener((message) => {
       const response = message as PortResponse;
+      
       if (response.messages) {
         setMessages(response.messages);
       }
+      
       if (response.httpMessages) {
         setHttpMessages(response.httpMessages);
       }
     });
-    
-    // Poll for messages every second
-    const interval = setInterval(() => {
-      port.postMessage({ action: 'getMessages' });
-    }, 1000);
     
     // Update window size on resize
     const handleResize = () => {
@@ -58,7 +58,6 @@ export function DevToolsPanel() {
     
     // Cleanup function
     return () => {
-      clearInterval(interval);
       port.disconnect();
       window.removeEventListener('resize', handleResize);
     };
@@ -67,8 +66,8 @@ export function DevToolsPanel() {
   const handleClear = () => {
     const port = Browser.runtime.connect({ name: 'devtools' });
     port.postMessage({ action: 'clearMessages' });
-    setMessages([]);
-    setHttpMessages([]);
+    // No need to manually set empty messages here
+    // as the background script will broadcast the clear
   };
 
   // Format message data for single line display
@@ -89,9 +88,13 @@ export function DevToolsPanel() {
     const isReceived = message.method === 'Network.webSocketFrameReceived';
     
     return (
-      <div 
+      <motion.div 
+        key={message.hash}
         style={style}
         className="border border-gray-200 dark:border-gray-700 p-3 rounded-md my-1 flex items-center overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
       >
         <div className="flex-shrink-0 mr-3">
           {isReceived ? (
@@ -116,7 +119,7 @@ export function DevToolsPanel() {
             {formatData(message.data)}
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   };
 
@@ -136,9 +139,13 @@ export function DevToolsPanel() {
     const method = isRequest ? parsedData.request?.method : 'Response';
     
     return (
-      <div 
+      <motion.div
+        key={message.hash}
         style={style}
         className="border border-gray-200 dark:border-gray-700 p-3 rounded-md my-1 flex items-center overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
       >
         <div className="flex-shrink-0 mr-3">
           {isRequest ? (
@@ -146,6 +153,7 @@ export function DevToolsPanel() {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-purple-600 dark:text-purple-300" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clipRule="evenodd" />
               </svg>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{message.hash}</div>
             </span>
           ) : (
             <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900">
@@ -165,7 +173,7 @@ export function DevToolsPanel() {
               (parsedData.response?.status ? `Status: ${parsedData.response.status}` : 'No status')}
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   };
 
