@@ -1,34 +1,27 @@
-import React, { useEffect, ComponentType } from 'react';
+import React, { useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
-import { FixedSizeList as _FixedSizeList, FixedSizeListProps } from 'react-window';
 
-import { Message } from './types';
-import { RowWebSocket } from './row-websocket';
-import { RowHttp } from './row-http';
-import { RowCombined } from './row-combined';
 import { EmptyState } from './empty-state';
 import { useWindowSize } from './hooks';
-import { useDevToolsStore } from '../../stores/store-context';
+import { useDevToolsStore } from '../../hooks/use-devtools-store';
 import { IconRefresh, IconTrash } from '@tabler/icons-react';
 import { NavButton } from '../ui/nav-button';
-
-// Fix for React 18 TypeScript compatibility issue
-const List = _FixedSizeList as ComponentType<FixedSizeListProps>;
+import { MessageList } from './message-list';
 
 export const DevToolsPanel = observer(() => {
-  const devToolsStore = useDevToolsStore();
+  const store = useDevToolsStore();
   const windowSize = useWindowSize({ width: 0, height: 64 });
   
   useEffect(() => {
     // Connect to background script and set up message listeners
-    const cleanup = devToolsStore.connectToDevTools();
+    const cleanup = store.connectToDevTools();
     
     // Cleanup function
     return cleanup;
-  }, [devToolsStore]);
+  }, [store]);
   
   const handleClear = () => {
-    devToolsStore.clearMessages();
+    store.clearMessages();
   };
 
   const handleReload = () => {
@@ -48,23 +41,8 @@ export const DevToolsPanel = observer(() => {
         </NavButton>
       </div>
       
-      <div className="flex-grow">
-        {devToolsStore.combinedMessages.length === 0 ? (
-          <EmptyState type="all" />
-        ) : (
-          <div className="h-full">
-            <List
-              className="rounded-md"
-              height={windowSize.height}
-              width={windowSize.width}
-              itemCount={devToolsStore.combinedMessages.length}
-              itemSize={48}
-              itemData={{ messages: devToolsStore.combinedMessages }}
-            >
-              {RowCombined}
-            </List>
-          </div>
-        )}
+      <div className="flex-grow overflow-auto">
+        <MessageList />
       </div>
 
       <div className="flex w-full justify-start h-8">

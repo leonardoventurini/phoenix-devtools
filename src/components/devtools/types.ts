@@ -3,11 +3,11 @@ export interface Message {
 	data: string;
 	hash: string;
 	type?: 'websocket' | 'http';
+	isPhoenix?: boolean;
 }
 
 export interface PortResponse {
 	messages?: Message[];
 	httpMessages?: Message[];
+	connections?: any[];
 }
-
-export type ActiveTab = 'websocket' | 'http' | 'all';
