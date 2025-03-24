@@ -1,3 +1,5 @@
+@use 'colors';
+
 @keyframes alternating-position {
   50% {
     background-position-x: -115%;
@@ -12,8 +14,8 @@
 
     background-image: repeating-linear-gradient(
       90deg,
-      $slate-500 -1%,
-      $slate-500 10%,
+      colors.$slate-500 -1%,
+      colors.$slate-500 10%,
       transparent 10%,
       transparent 90%
     );

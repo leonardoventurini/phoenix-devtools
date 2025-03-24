@@ -1,6 +1,11 @@
 import { DevToolsPanel as DevToolsPanelComponent } from '../../components/devtools/devtools-panel';
+import { StoreProvider } from '../../stores/store-context';
 import '../../styles/index.scss';
 
 export function DevToolsPanel() {
-  return <DevToolsPanelComponent />;
+  return (
+    <StoreProvider>
+      <DevToolsPanelComponent />
+    </StoreProvider>
+  );
 } 
