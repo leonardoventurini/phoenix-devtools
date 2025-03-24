@@ -5,6 +5,7 @@ import { FixedSizeList as _FixedSizeList, FixedSizeListProps } from 'react-windo
 import { Message, PortResponse, ActiveTab } from './types';
 import { RowWebSocket } from './row-websocket';
 import { RowHttp } from './row-http';
+import { RowCombined } from './row-combined';
 import { EmptyState } from './empty-state';
 import { useWindowSize } from './hooks';
 
@@ -14,12 +15,21 @@ const List = _FixedSizeList as ComponentType<FixedSizeListProps>;
 export function DevToolsPanel() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [httpMessages, setHttpMessages] = useState<Message[]>([]);
-  const [activeTab, setActiveTab] = useState<ActiveTab>('websocket');
   const windowSize = useWindowSize({ width: 40, height: 100 });
   
   // Create reversed message arrays for display (newest first)
   const reversedMessages = useMemo(() => [...messages].reverse(), [messages]);
   const reversedHttpMessages = useMemo(() => [...httpMessages].reverse(), [httpMessages]);
+  
+  // Create combined messages array with type information
+  const combinedMessages = useMemo(() => {
+    const wsMessages = messages.map(msg => ({ ...msg, type: 'websocket' as const }));
+    const httpMsgs = httpMessages.map(msg => ({ ...msg, type: 'http' as const }));
+    return [...wsMessages, ...httpMsgs].sort((a, b) => {
+      // Sort by timestamp if available, otherwise by hash
+      return a.hash.localeCompare(b.hash);
+    }).reverse();
+  }, [messages, httpMessages]);
   
   useEffect(() => {
     const port = Browser.runtime.connect({ name: 'devtools' });
@@ -67,72 +77,22 @@ export function DevToolsPanel() {
         </button>
       </div>
       
-      <div className="mb-4 border-b border-gray-200 dark:border-gray-700">
-        <ul className="flex flex-wrap -mb-px">
-          <li className="mr-2">
-            <button
-              className={`inline-block p-4 border-b-2 rounded-t-lg ${
-                activeTab === 'websocket'
-                  ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-500'
-                  : 'border-transparent hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'
-              }`}
-              onClick={() => setActiveTab('websocket')}
-            >
-              WebSocket
-            </button>
-          </li>
-          <li className="mr-2">
-            <button
-              className={`inline-block p-4 border-b-2 rounded-t-lg ${
-                activeTab === 'http'
-                  ? 'border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-500'
-                  : 'border-transparent hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300'
-              }`}
-              onClick={() => setActiveTab('http')}
-            >
-              HTTP
-            </button>
-          </li>
-        </ul>
-      </div>
-      
       <div className="bg-gray-50 dark:bg-gray-800 rounded-lg shadow p-1 flex-grow">
-        {activeTab === 'websocket' && (
-          messages.length === 0 ? (
-            <EmptyState type="websocket" />
-          ) : (
-            <div className="h-full">
-              <List
-                className="rounded-md"
-                height={windowSize.height}
-                width={windowSize.width}
-                itemCount={reversedMessages.length}
-                itemSize={70}
-                itemData={{ messages: reversedMessages }}
-              >
-                {RowWebSocket}
-              </List>
-            </div>
-          )
-        )}
-        
-        {activeTab === 'http' && (
-          httpMessages.length === 0 ? (
-            <EmptyState type="http" />
-          ) : (
-            <div className="h-full">
-              <List
-                className="rounded-md"
-                height={windowSize.height}
-                width={windowSize.width}
-                itemCount={reversedHttpMessages.length}
-                itemSize={70}
-                itemData={{ messages: reversedHttpMessages }}
-              >
-                {RowHttp}
-              </List>
-            </div>
-          )
+        {combinedMessages.length === 0 ? (
+          <EmptyState type="all" />
+        ) : (
+          <div className="h-full">
+            <List
+              className="rounded-md"
+              height={windowSize.height}
+              width={windowSize.width}
+              itemCount={combinedMessages.length}
+              itemSize={70}
+              itemData={{ messages: combinedMessages }}
+            >
+              {RowCombined}
+            </List>
+          </div>
         )}
       </div>
     </div>
