@@ -56,8 +56,34 @@ export class DevToolsStore extends BaseStore {
 	private isPhoenixMessage(message: Message): boolean {
 		// Try to detect Phoenix message by its content structure
 		try {
+			// First, try to parse the message
 			const data = JSON.parse(message.data);
 
+			// Check for Phoenix array format: ["3","3","phoenix:live_reload","phx_join",{}]
+			if (Array.isArray(data)) {
+				// Phoenix messages as arrays typically have a topic in position 2 and event in position 3
+				if (data.length >= 4) {
+					const topic = data[2];
+					const event = data[3];
+
+					// Check for known Phoenix patterns
+					if (
+						// Handle both string topics and check phoenix directly
+						(typeof topic === 'string' && (topic.includes('phoenix') || topic.startsWith('lv:'))) ||
+						// Handle case where "phoenix" is the direct channel/topic name
+						topic === 'phoenix'
+					) {
+						return true;
+					}
+
+					// Check for Phoenix events (regardless of topic)
+					if (typeof event === 'string' && (event.startsWith('phx_') || event === 'heartbeat')) {
+						return true;
+					}
+				}
+			}
+
+			// Continue with the existing object format checks
 			// Phoenix messages typically have topic, event, payload, and ref fields
 			if (data.topic && data.event && data.payload !== undefined && data.ref !== undefined) {
 				return true;

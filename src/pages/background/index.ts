@@ -27,8 +27,14 @@ chrome.debugger.onEvent.addListener(function(debuggeeId, method, params: any) {
 		// Check if this is a Phoenix connection based on URL patterns
 		if (connectionInfo.url) {
 			const url = connectionInfo.url.toLowerCase();
-			// Phoenix sockets typically use paths like /socket, /live, or /phoenix
-			if (url.includes('/socket') || url.includes('/live') || url.includes('/phoenix')) {
+			// Phoenix sockets typically use paths like /socket, /live, /phoenix, or end with /websocket
+			if (
+				url.includes('/socket') ||
+				url.includes('/live') ||
+				url.includes('/phoenix') ||
+				url.includes('/user_socket') ||
+				url.endsWith('/websocket')
+			) {
 				connectionInfo.isPhoenix = true;
 			}
 		}
