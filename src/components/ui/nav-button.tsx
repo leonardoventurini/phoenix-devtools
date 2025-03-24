@@ -13,8 +13,8 @@ type ItemMenu = {
 
 const navButtonVariants = cva(
   [
-    'flex items-center gap-1.5 rounded-md px-3 py-2',
-    'text-xs font-medium transition-colors duration-200 ease-in-out',
+    'flex items-center gap-1.5 px-3 py-2 cursor-pointer',
+    'text-[9px] font-medium transition-colors duration-200 ease-in-out',
   ],
   {
     variants: {
@@ -56,6 +56,10 @@ const navButtonVariants = cva(
         md: 'text-sm py-2',
         lg: 'text-base py-2.5',
       },
+      square: {
+        true: null,
+        false: 'rounded-md',
+      },
     },
     defaultVariants: {
       variant: 'default',
@@ -74,6 +78,7 @@ type NavButtonProps = React.HTMLAttributes<HTMLElement> &
     menu?: ItemMenu[]
     disabled?: boolean
     active?: boolean
+    square?: boolean
   }
 
 export const NavButton = forwardRef<any, NavButtonProps>(
@@ -90,13 +95,14 @@ export const NavButton = forwardRef<any, NavButtonProps>(
       active,
       variant,
       size,
+      square,
       ...props
     },
     ref,
   ) => {
     const genericProps = {
       className: cn(
-        navButtonVariants({ variant, size }),
+        navButtonVariants({ variant, size, square }),
         {
           'cursor-default': disabled,
           // active

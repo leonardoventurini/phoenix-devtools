@@ -19,7 +19,7 @@ export const RowCombined = ({ index, style, data }: CombinedRowProps) => {
       <div 
         key={message.hash}
         style={style}
-        className="border border-gray-200 dark:border-gray-700 p-3 rounded-md my-1 flex items-center overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+        className="px-4 flex items-center overflow-hidden hover:bg-black/10 transition-colors"
       >
         <div className="flex-shrink-0 mr-3">
           {isReceived ? (
@@ -43,9 +43,9 @@ export const RowCombined = ({ index, style, data }: CombinedRowProps) => {
               WebSocket
             </span>
           </div>
-          <div className="font-mono text-xs overflow-hidden text-ellipsis whitespace-nowrap text-gray-600 dark:text-gray-400">
-            {formatData(message.data)}
-          </div>
+        </div>
+        <div className="font-mono text-xs overflow-hidden text-ellipsis whitespace-nowrap text-gray-600 dark:text-gray-400">
+          {formatData(message.data)}
         </div>
       </div>
     );
