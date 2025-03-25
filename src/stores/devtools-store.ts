@@ -1,4 +1,4 @@
-import { makeObservable, observable, action, computed } from 'mobx';
+import { observable, action, computed, makeObservable } from 'mobx';
 import Browser from 'webextension-polyfill';
 import { BaseStore } from './base-store';
 import { Message } from '../components/devtools/types';
@@ -9,37 +9,27 @@ export enum MessageType {
 }
 
 export class DevToolsStore extends BaseStore {
-	messages: Message[] = [];
-	httpMessages: Message[] = [];
-	connections: any[] = [];
-	port: Browser.Runtime.Port | null = null;
+	@observable messages: Message[] = [];
+	@observable httpMessages: Message[] = [];
+	@observable connections: any[] = [];
+	@observable port: Browser.Runtime.Port | null = null;
 
 	constructor() {
 		super();
-		makeObservable(this, {
-			messages: observable,
-			httpMessages: observable,
-			connections: observable,
-			port: observable,
-			reversedMessages: computed,
-			reversedHttpMessages: computed,
-			combinedMessages: computed,
-			connectToDevTools: action,
-			setMessages: action,
-			setHttpMessages: action,
-			setConnections: action,
-			clearMessages: action
-		});
+		makeObservable(this);
 	}
 
+	@computed
 	get reversedMessages() {
-		return [ ...this.messages ].reverse();
+		return this.messages.reverse();
 	}
 
+	@computed
 	get reversedHttpMessages() {
-		return [ ...this.httpMessages ].reverse();
+		return this.httpMessages.reverse();
 	}
 
+	@computed
 	get combinedMessages() {
 		const wsMessages = this.messages.map((msg) => {
 			// Detect Phoenix messages
@@ -123,6 +113,7 @@ export class DevToolsStore extends BaseStore {
 		return false;
 	}
 
+	@action
 	connectToDevTools() {
 		this.port = Browser.runtime.connect({ name: 'devtools' });
 
@@ -154,23 +145,26 @@ export class DevToolsStore extends BaseStore {
 		}
 
 		if (message.connections) {
-			console.log('connections', message.connections);
 			this.setConnections(message.connections);
 		}
 	};
 
+	@action
 	setMessages(messages: Message[]) {
 		this.messages = messages;
 	}
 
+	@action
 	setHttpMessages(messages: Message[]) {
 		this.httpMessages = messages;
 	}
 
+	@action
 	setConnections(connections: any[]) {
 		this.connections = connections;
 	}
 
+	@action
 	clearMessages() {
 		if (this.port) {
 			this.port.postMessage({ action: 'clearMessages' });

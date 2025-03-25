@@ -16,6 +16,8 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "baseUrl": ".",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": true,
     "paths": {
       "@src/*": ["src/*"],
       "@assets/*": ["src/assets/*"],

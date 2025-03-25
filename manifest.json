@@ -11,9 +11,6 @@
       "256": "public/logo.png"
     }
   },
-  "chrome_url_overrides": {
-    "newtab": "src/pages/newtab/index.html"
-  },
   "icons": {
     "256": "public/logo.png"
   },
