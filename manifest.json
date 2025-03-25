@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Phoenix DevTools",
+  "name": "DevX",
   "description": "See and understand all communication between your Elixir Phoenix app and the server",
   "options_ui": {
     "page": "src/pages/options/index.html"
