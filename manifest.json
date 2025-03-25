@@ -1,21 +1,21 @@
 {
   "manifest_version": 3,
   "name": "DevX",
-  "description": "See and understand all communication between your Elixir Phoenix app and the server",
+  "description": "The ultimate developer experience",
   "options_ui": {
     "page": "src/pages/options/index.html"
   },
   "action": {
     "default_popup": "src/pages/popup/index.html",
     "default_icon": {
-      "32": "icon-32.png"
+      "256": "public/logo.png"
     }
   },
   "chrome_url_overrides": {
     "newtab": "src/pages/newtab/index.html"
   },
   "icons": {
-    "128": "icon-128.png"
+    "256": "public/logo.png"
   },
   "permissions": [
     "activeTab",
@@ -46,8 +46,7 @@
     {
       "resources": [
         "contentStyle.css",
-        "icon-128.png",
-        "icon-32.png"
+        "public/logo.png"
       ],
       "matches": []
     }
