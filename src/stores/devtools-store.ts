@@ -1,18 +1,17 @@
-import { observable, action, computed, makeObservable } from 'mobx';
+import { observable, action, computed, makeObservable, runInAction } from 'mobx';
 import Browser from 'webextension-polyfill';
 import { BaseStore } from './base-store';
-import { Message } from '../components/devtools/types';
-
-export enum MessageType {
-	WebSocket = 'websocket',
-	Http = 'http'
-}
+import { Message, MessageDirection, MessageType } from '../components/devtools/types';
+import { debounce } from 'lodash';
 
 export class DevToolsStore extends BaseStore {
 	@observable messages: Message[] = [];
-	@observable httpMessages: Message[] = [];
 	@observable connections: any[] = [];
 	@observable port: Browser.Runtime.Port | null = null;
+	buffer: Message[] = [];
+	@observable newMessages: string[] = [];
+	@observable inboundBytes = 0;
+	@observable outboundBytes = 0;
 
 	constructor() {
 		super();
@@ -21,25 +20,17 @@ export class DevToolsStore extends BaseStore {
 
 	@computed
 	get reversedMessages() {
-		return this.messages.reverse();
+		return [ ...this.messages ].reverse();
 	}
 
 	@computed
-	get reversedHttpMessages() {
-		return this.httpMessages.reverse();
+	get websocketMessages() {
+		return this.messages.filter((msg) => msg.type === MessageType.WebSocket);
 	}
 
 	@computed
-	get combinedMessages() {
-		const wsMessages = this.messages.map((msg) => {
-			// Detect Phoenix messages
-			const isPhoenix = this.isPhoenixMessage(msg);
-			return { ...msg, type: MessageType.WebSocket, isPhoenix };
-		});
-
-		const httpMsgs = this.httpMessages.map((msg) => ({ ...msg, type: MessageType.Http }));
-
-		return [ ...wsMessages, ...httpMsgs ].sort((a, b) => a.hash.localeCompare(b.hash)).reverse();
+	get httpMessages() {
+		return this.messages.filter((msg) => msg.type === MessageType.Http);
 	}
 
 	// Detect Phoenix messages by checking the message content or associated connection
@@ -133,15 +124,14 @@ export class DevToolsStore extends BaseStore {
 
 	private handlePortMessage = (message: any) => {
 		if (message.messages) {
-			// Process and add isPhoenix flag to messages
-			const processedMessages = message.messages.map((msg: Message) => {
-				return { ...msg, isPhoenix: this.isPhoenixMessage(msg) };
-			});
-			this.setMessages(processedMessages);
-		}
+			const processedMessages = message.messages
+				.map((msg: Message) => {
+					return { ...msg, isPhoenix: this.isPhoenixMessage(msg) };
+				})
+				.sort((a: Message, b: Message) => a.timestamp - b.timestamp);
 
-		if (message.httpMessages) {
-			this.setHttpMessages(message.httpMessages);
+			this.buffer.push(...processedMessages);
+			this.submitLogs();
 		}
 
 		if (message.connections) {
@@ -155,11 +145,6 @@ export class DevToolsStore extends BaseStore {
 	}
 
 	@action
-	setHttpMessages(messages: Message[]) {
-		this.httpMessages = messages;
-	}
-
-	@action
 	setConnections(connections: any[]) {
 		this.connections = connections;
 	}
@@ -168,6 +153,50 @@ export class DevToolsStore extends BaseStore {
 	clearMessages() {
 		if (this.port) {
 			this.port.postMessage({ action: 'clearMessages' });
+			this.messages = [];
 		}
 	}
+
+	submitLogs = debounce(
+		action(() => {
+			this._submitLogs();
+		}),
+		100,
+		{
+			maxWait: 1000
+		}
+	);
+
+	@action
+	_submitLogs() {
+		if (this.bufferCallback) {
+			this.bufferCallback(this.buffer);
+		}
+
+		this.messages.push(...this.buffer);
+
+		this.buffer = [];
+	}
+
+	bufferCallback = (buffer: Message[]) => {
+		this.buffer = buffer;
+
+		this.newMessages.push(...buffer.map(({ hash }) => hash));
+
+		this.inboundBytes += buffer
+			.filter((message) => message.direction === MessageDirection.Inbound)
+			.reduce((sum, message) => sum + (message.size || 0), 0);
+
+		this.outboundBytes += buffer
+			.filter((message) => message.direction === MessageDirection.Outbound)
+			.reduce((sum, message) => sum + (message.size || 0), 0);
+
+		this.clearNewLogs();
+	};
+
+	clearNewLogs = debounce(() => {
+		runInAction(() => {
+			this.newMessages = [];
+		});
+	}, 1000);
 }

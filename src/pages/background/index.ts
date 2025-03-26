@@ -1,16 +1,36 @@
+import { Message, MessageType, MessageDirection } from '../../components/devtools/types';
+
+const MAX_MESSAGES = 10000;
+
 chrome.debugger.onEvent.addListener(function(debuggeeId, method, params: any) {
 	if (method === 'Network.webSocketFrameReceived' || method === 'Network.webSocketFrameSent') {
 		let data = params.response ? params.response.payloadData : params.request.data;
 		hashMessage(method + data).then((messageHash) => {
-			chrome.storage.local.get([ 'websocketMessages' ], function(result) {
-				let messages = result.websocketMessages || [];
-				messages.push({ method, data, hash: messageHash });
-				chrome.storage.local.set({ websocketMessages: messages });
+			chrome.storage.local.get([ 'messages' ], function(result) {
+				let messages = result.messages || [];
+				messages.push({
+					method,
+					data,
+					hash: messageHash,
+					type: MessageType.WebSocket,
+					direction:
+						method === 'Network.webSocketFrameReceived'
+							? MessageDirection.Inbound
+							: MessageDirection.Outbound,
+					size: new TextEncoder().encode(data).length,
+					timestamp: Date.now()
+				});
+
+				if (messages.length > MAX_MESSAGES) {
+					messages = messages.slice(-MAX_MESSAGES);
+				}
+
+				chrome.storage.local.set({ messages });
 
 				// Broadcast to all connected devtools panels
 				broadcastToDevTools({
-					messages: messages,
-					httpMessages: null
+					messages,
+					connections: null
 				});
 			});
 		});
@@ -48,24 +68,45 @@ chrome.debugger.onEvent.addListener(function(debuggeeId, method, params: any) {
 
 				// Broadcast connection info to devtools
 				broadcastToDevTools({
-					connections: connections,
-					messages: null,
-					httpMessages: null
+					connections,
+					messages: null
 				});
 			});
 		});
 	} else if (method === 'Network.requestWillBeSent' || method === 'Network.responseReceived') {
-		const stringifiedData = JSON.stringify(params);
+		const data = {
+			request: method === 'Network.requestWillBeSent' ? params.request : undefined,
+			response: method === 'Network.responseReceived' ? params.response : undefined,
+			requestId: params.requestId,
+			timestamp: Math.floor(params.timestamp * 1000),
+			type: params.type
+		};
+
+		const stringifiedData = JSON.stringify(data);
 		hashMessage(method + stringifiedData).then((messageHash) => {
-			chrome.storage.local.get([ 'httpMessages' ], function(result) {
-				let messages = result.httpMessages || [];
-				messages.push({ method, data: stringifiedData, hash: messageHash });
-				chrome.storage.local.set({ httpMessages: messages });
+			chrome.storage.local.get([ 'messages' ], function(result) {
+				let messages = result.messages || [];
+				messages.push({
+					method,
+					data: stringifiedData,
+					hash: messageHash,
+					type: MessageType.Http,
+					direction:
+						method === 'Network.requestWillBeSent' ? MessageDirection.Outbound : MessageDirection.Inbound,
+					size: new TextEncoder().encode(stringifiedData).length,
+					timestamp: Date.now()
+				});
+
+				if (messages.length > MAX_MESSAGES) {
+					messages = messages.slice(-MAX_MESSAGES);
+				}
+
+				chrome.storage.local.set({ messages });
 
 				// Broadcast to all connected devtools panels
 				broadcastToDevTools({
-					messages: null,
-					httpMessages: messages
+					messages,
+					connections: null
 				});
 			});
 		});
@@ -76,11 +117,7 @@ chrome.debugger.onEvent.addListener(function(debuggeeId, method, params: any) {
 const devToolsPorts: chrome.runtime.Port[] = [];
 
 // Function to broadcast messages to all connected devtools panels
-function broadcastToDevTools(data: {
-	messages?: any[] | null;
-	httpMessages?: any[] | null;
-	connections?: any[] | null;
-}) {
+function broadcastToDevTools(data: { messages?: Message[] | null; connections?: any[] | null }) {
 	devToolsPorts.forEach((port) => {
 		port.postMessage(data);
 	});
@@ -98,8 +135,7 @@ async function hashMessage(message: string): Promise<string> {
 
 chrome.debugger.onDetach.addListener(function(debuggeeId, reason) {
 	chrome.storage.local.set({
-		websocketMessages: [],
-		httpMessages: [],
+		messages: [],
 		websocketConnections: []
 	});
 });
@@ -130,25 +166,20 @@ chrome.runtime.onConnect.addListener(function(port) {
 					}
 				});
 			} else if (request.action === 'getMessages') {
-				chrome.storage.local.get([ 'websocketMessages', 'httpMessages', 'websocketConnections' ], function(
-					result
-				) {
+				chrome.storage.local.get([ 'messages', 'websocketConnections' ], function(result) {
 					port.postMessage({
-						messages: result.websocketMessages || [],
-						httpMessages: result.httpMessages || [],
+						messages: result.messages || [],
 						connections: result.websocketConnections || []
 					});
 				});
 			} else if (request.action === 'clearMessages') {
 				chrome.storage.local.set({
-					websocketMessages: [],
-					httpMessages: [],
+					messages: [],
 					websocketConnections: []
 				});
 				// Broadcast empty messages to all connected devtools panels
 				broadcastToDevTools({
 					messages: [],
-					httpMessages: [],
 					connections: []
 				});
 			}
