@@ -154,13 +154,11 @@ export const MessageList: React.FC = observer(() => {
     return <EmptyState />;
   }
 
-  const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => (
+  const Row = observer(({ index, style }: { index: number; style: React.CSSProperties }) => (
     <div style={style}>
-      <div className="mb-0.5">
-        <MessageRow message={messages[index]} isNew={store.newMessages.includes(messages[index].hash)} />
-      </div>
+      <MessageRow message={messages[index]} isNew={store.newMessages.includes(messages[index].hash)} />
     </div>
-  );
+  ));
   
   return (
     <div ref={containerRef} className="overflow-auto h-full">
@@ -168,7 +166,7 @@ export const MessageList: React.FC = observer(() => {
         height={height}
         width="100%"
         itemCount={messages.length}
-        itemSize={32} // 28px height + 2px margin
+        itemSize={28}
         overscanCount={5}
       >
         {Row}
