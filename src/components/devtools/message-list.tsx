@@ -1,12 +1,17 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
+import { FixedSizeList } from 'react-window';
 import { Message, MessageType, MessageDirection } from './types';
 import { EmptyState } from './empty-state';
 import { useDevToolsStore } from '../../hooks/use-devtools-store';
 import { cn } from '../../utils/cn';
+import { useWindowSize } from './hooks';
+
+const _FixedSizeList = FixedSizeList as any;
 
 interface MessageRowProps {
   message: Message;
+  isNew: boolean;
 }
 
 const formatTimestamp = (timestamp: number) => {
@@ -27,8 +32,7 @@ const formatSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const MessageRow: React.FC<MessageRowProps> = ({ message }) => {
-  const store = useDevToolsStore();
+const MessageRow: React.FC<MessageRowProps> = ({ message, isNew }) => {
   const isWebSocket = message.type === MessageType.WebSocket;
   const isInbound = message.direction === MessageDirection.Inbound;
   
@@ -88,8 +92,8 @@ const MessageRow: React.FC<MessageRowProps> = ({ message }) => {
   }
   
   return (
-    <div className={cn("border border-gray-200 dark:border-gray-700 rounded-md h-7 flex items-center overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors px-1.5", {
-      "bg-green-300/50 dark:bg-green-900/20": store.newMessages.includes(message.hash)
+    <div className={cn("border cursor-pointer border-gray-200 dark:border-gray-700 rounded-md h-7 flex items-center overflow-hidden hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors px-1.5", {
+      "bg-green-300/50 dark:bg-green-900/20": isNew
     })}>
       <div className="flex-shrink-0 mr-1.5">
         <span className={cn("inline-flex items-center justify-center w-4 h-4 rounded-full", bgColor)}>
@@ -142,18 +146,33 @@ const MessageRow: React.FC<MessageRowProps> = ({ message }) => {
 export const MessageList: React.FC = observer(() => {
   const store = useDevToolsStore();
   const messages = store.reversedMessages;
-  
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const { height } = useWindowSize({ width: 0, height: 64 });
+
   if (messages.length === 0) {
     return <EmptyState />;
   }
+
+  const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => (
+    <div style={style}>
+      <div className="mb-0.5">
+        <MessageRow message={messages[index]} isNew={store.newMessages.includes(messages[index].hash)} />
+      </div>
+    </div>
+  );
   
   return (
-    <div className="overflow-auto h-full">
-      {messages.map((message) => (
-        <div key={message.hash} className="mb-0.5">
-          <MessageRow message={message} />
-        </div>
-      ))}
+    <div ref={containerRef} className="overflow-auto h-full">
+      <_FixedSizeList
+        height={height}
+        width="100%"
+        itemCount={messages.length}
+        itemSize={32} // 28px height + 2px margin
+        overscanCount={5}
+      >
+        {Row}
+      </_FixedSizeList>
     </div>
   );
 }); 
