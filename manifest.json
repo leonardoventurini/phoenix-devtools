@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "DevX",
+  "name": "Phoenix DevTools",
   "description": "The ultimate developer experience",
   "options_ui": {
     "page": "src/pages/options/index.html"

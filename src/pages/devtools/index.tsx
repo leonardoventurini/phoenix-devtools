@@ -6,7 +6,7 @@ import { RootStore } from '../../stores/root-store';
 import { StoreProvider } from '../../contexts/store-context';
 import { DevToolsPanel } from '@src/components/devtools/devtools-panel';
 
-Browser.devtools.panels.create('DevX', 'icon-32.png', 'src/pages/devtools/index.html').catch(console.error);
+Browser.devtools.panels.create('Phoenix DevTools', 'icon-32.png', 'src/pages/devtools/index.html').catch(console.error);
 
 // Create root store
 const rootStore = new RootStore();
