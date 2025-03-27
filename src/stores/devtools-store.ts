@@ -13,6 +13,7 @@ export class DevToolsStore extends BaseStore {
 	@observable inboundBytes = 0;
 	@observable outboundBytes = 0;
 	@observable isDebuggerAttached: boolean = false;
+	@observable searchTerm: string = '';
 
 	constructor() {
 		super();
@@ -21,7 +22,7 @@ export class DevToolsStore extends BaseStore {
 
 	@computed
 	get reversedMessages() {
-		return [ ...this.messages ].reverse();
+		return [ ...this.filteredMessages ].reverse();
 	}
 
 	@computed
@@ -32,6 +33,75 @@ export class DevToolsStore extends BaseStore {
 	@computed
 	get httpMessages() {
 		return this.messages.filter((msg) => msg.type === MessageType.Http);
+	}
+
+	@computed
+	get filteredMessages() {
+		if (!this.searchTerm.trim()) {
+			return this.messages;
+		}
+
+		const normalizedSearchTerm = this.normalizeText(this.searchTerm.trim().toLowerCase());
+
+		return this.messages.filter((message) => {
+			// Create a searchable string from all message fields
+			const searchString = this.createSearchString(message);
+			const normalizedSearchString = this.normalizeText(searchString);
+
+			// Perform simple substring search (case insensitive and ignoring diacritics)
+			return this.performSearch(normalizedSearchString, normalizedSearchTerm);
+		});
+	}
+
+	// Normalize text by removing diacritics
+	private normalizeText(text: string): string {
+		return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+	}
+
+	// Create a searchable string from all message fields
+	private createSearchString(message: Message): string {
+		let searchParts = [
+			message.method,
+			message.data,
+			message.type,
+			message.direction,
+			message.isPhoenix ? 'phoenix' : '',
+			new Date(message.timestamp).toLocaleString()
+		];
+
+		// Try to extract more data from JSON if possible
+		try {
+			if (message.data) {
+				const jsonData = JSON.parse(message.data);
+				const jsonString = JSON.stringify(jsonData);
+				searchParts.push(jsonString);
+			}
+		} catch (e) {
+			// Not JSON, continue without parsing
+		}
+
+		return searchParts.filter(Boolean).join(' ').toLowerCase();
+	}
+
+	// Simple substring search implementation that supports multiple terms
+	private performSearch(text: string, query: string): boolean {
+		// Direct match
+		if (text.includes(query)) {
+			return true;
+		}
+
+		// Support for multiple search terms (space-separated)
+		const terms = query.split(/\s+/);
+		if (terms.length > 1) {
+			return terms.every((term) => text.includes(term));
+		}
+
+		return false;
+	}
+
+	@action
+	setSearchTerm(term: string) {
+		this.searchTerm = term;
 	}
 
 	// Detect Phoenix messages by checking the message content or associated connection
