@@ -117,7 +117,11 @@ chrome.debugger.onEvent.addListener(function(debuggeeId, method, params: any) {
 const devToolsPorts: chrome.runtime.Port[] = [];
 
 // Function to broadcast messages to all connected devtools panels
-function broadcastToDevTools(data: { messages?: Message[] | null; connections?: any[] | null }) {
+function broadcastToDevTools(data: {
+	messages?: Message[] | null;
+	connections?: any[] | null;
+	debuggerStatus?: 'attached' | 'detached';
+}) {
 	devToolsPorts.forEach((port) => {
 		port.postMessage(data);
 	});
@@ -138,12 +142,48 @@ chrome.debugger.onDetach.addListener(function(debuggeeId, reason) {
 		messages: [],
 		websocketConnections: []
 	});
+
+	// Broadcast debugger status to all devtools panels
+	broadcastToDevTools({
+		debuggerStatus: 'detached'
+	});
 });
 
 chrome.runtime.onConnect.addListener(function(port) {
 	if (port.name === 'devtools') {
 		// Add to connected ports
 		devToolsPorts.push(port);
+
+		// Check if debugger is already attached to the current tab
+		chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+			if (tabs[0]) {
+				try {
+					// More reliable way to check if debugger is attached
+					chrome.debugger.sendCommand(
+						{ tabId: tabs[0].id },
+						'Runtime.evaluate',
+						{ expression: '1+1' },
+						function(result) {
+							// If this succeeds, debugger is attached
+							if (chrome.runtime.lastError) {
+								console.log('Debugger not attached (error):', chrome.runtime.lastError);
+								port.postMessage({ debuggerStatus: 'detached' });
+							} else {
+								console.log('Debugger is attached');
+								port.postMessage({ debuggerStatus: 'attached' });
+							}
+						}
+					);
+				} catch (e) {
+					// If an exception occurs, debugger is not attached
+					console.log('Debugger check exception:', e);
+					port.postMessage({ debuggerStatus: 'detached' });
+				}
+			} else {
+				// If no active tab is found, assume debugger is not attached
+				port.postMessage({ debuggerStatus: 'detached' });
+			}
+		});
 
 		port.onDisconnect.addListener(function() {
 			// Remove from connected ports
@@ -157,12 +197,65 @@ chrome.runtime.onConnect.addListener(function(port) {
 			if (request.action === 'attachDebugger') {
 				chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
 					if (tabs[0]) {
-						chrome.debugger.attach({ tabId: tabs[0].id }, '1.3', function() {
-							chrome.debugger.sendCommand({ tabId: tabs[0].id }, 'Network.enable');
-							chrome.debugger.sendCommand({ tabId: tabs[0].id }, 'Network.setExtraHTTPHeaders', {
-								headers: { 'X-DevTools-Emulate-Network-Conditions': 'true' }
+						try {
+							chrome.debugger.attach({ tabId: tabs[0].id }, '1.3', function() {
+								if (chrome.runtime.lastError) {
+									console.error('Error attaching debugger:', chrome.runtime.lastError);
+									port.postMessage({ debuggerStatus: 'detached' });
+									return;
+								}
+
+								console.log('Debugger attached successfully');
+
+								chrome.debugger.sendCommand({ tabId: tabs[0].id }, 'Network.enable', {}, function() {
+									if (chrome.runtime.lastError) {
+										console.error('Error enabling Network:', chrome.runtime.lastError);
+									}
+								});
+
+								chrome.debugger.sendCommand(
+									{ tabId: tabs[0].id },
+									'Network.setExtraHTTPHeaders',
+									{ headers: { 'X-DevTools-Emulate-Network-Conditions': 'true' } },
+									function() {
+										if (chrome.runtime.lastError) {
+											console.error('Error setting headers:', chrome.runtime.lastError);
+										}
+									}
+								);
+
+								// Notify port about debugger status
+								port.postMessage({ debuggerStatus: 'attached' });
 							});
-						});
+						} catch (e) {
+							console.error('Exception attaching debugger:', e);
+							port.postMessage({ debuggerStatus: 'detached' });
+						}
+					} else {
+						console.error('No active tab found for attaching debugger');
+						port.postMessage({ debuggerStatus: 'detached' });
+					}
+				});
+			} else if (request.action === 'detachDebugger') {
+				chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+					if (tabs[0]) {
+						try {
+							chrome.debugger.detach({ tabId: tabs[0].id }, function() {
+								if (chrome.runtime.lastError) {
+									console.error('Error detaching debugger:', chrome.runtime.lastError);
+								} else {
+									console.log('Debugger detached successfully');
+								}
+								// Always notify port that debugger is detached, even if there was an error
+								port.postMessage({ debuggerStatus: 'detached' });
+							});
+						} catch (e) {
+							console.error('Exception detaching debugger:', e);
+							port.postMessage({ debuggerStatus: 'detached' });
+						}
+					} else {
+						console.error('No active tab found for detaching debugger');
+						port.postMessage({ debuggerStatus: 'detached' });
 					}
 				});
 			} else if (request.action === 'getMessages') {

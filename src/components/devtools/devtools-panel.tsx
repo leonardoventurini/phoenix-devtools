@@ -4,7 +4,7 @@ import { observer } from 'mobx-react-lite';
 import { EmptyState } from './empty-state';
 import { useWindowSize } from './hooks';
 import { useDevToolsStore } from '../../hooks/use-devtools-store';
-import { IconRefresh, IconTrash } from '@tabler/icons-react';
+import { IconRefresh, IconTrash, IconBug, IconBugOff } from '@tabler/icons-react';
 import { NavButton } from '../ui/nav-button';
 import { MessageList } from './message-list';
 
@@ -28,9 +28,32 @@ export const DevToolsPanel = observer(() => {
     location.reload();
   };
 
+  const handleToggleDebugger = () => {
+    console.log(`Toggling debugger. Current state: ${store.isDebuggerAttached ? 'attached' : 'detached'}`);
+    store.toggleDebugger();
+  };
+
   return (
     <div className="bg-slate-700 h-screen p-0 flex flex-col overflow-hidden">
-      <div className="flex w-full justify-end h-8">
+      <div className="flex w-full justify-between h-8">
+        <NavButton
+          variant={store.isDebuggerAttached ? 'warning' : 'primary'}
+          onClick={handleToggleDebugger}
+          square
+        >
+          {store.isDebuggerAttached ? (
+            <>
+              <IconBugOff className="size-4 mr-1" />
+              Stop Debugger
+            </>
+          ) : (
+            <>
+              <IconBug className="size-4 mr-1" />
+              Start Debugger
+            </>
+          )}
+        </NavButton>
+        
         <NavButton
           variant='info'
           onClick={handleReload}

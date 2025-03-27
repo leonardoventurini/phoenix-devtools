@@ -12,6 +12,7 @@ export class DevToolsStore extends BaseStore {
 	@observable newMessages: string[] = [];
 	@observable inboundBytes = 0;
 	@observable outboundBytes = 0;
+	@observable isDebuggerAttached: boolean = false;
 
 	constructor() {
 		super();
@@ -106,9 +107,13 @@ export class DevToolsStore extends BaseStore {
 
 	@action
 	connectToDevTools() {
+		// Reset state on connect
 		this.port = Browser.runtime.connect({ name: 'devtools' });
+		this.isDebuggerAttached = false;
+		this.messages = [];
 
-		this.port.postMessage({ action: 'attachDebugger' });
+		console.log('DevTools connected, setting initial debugger state to detached');
+
 		this.port.postMessage({ action: 'getMessages' });
 
 		this.port.onMessage.addListener(this.handlePortMessage);
@@ -122,7 +127,43 @@ export class DevToolsStore extends BaseStore {
 		};
 	}
 
+	@action
+	toggleDebugger() {
+		if (this.isDebuggerAttached) {
+			this.detachDebugger();
+		} else {
+			this.attachDebugger();
+		}
+	}
+
+	@action
+	attachDebugger() {
+		if (this.port && !this.isDebuggerAttached) {
+			console.log('Attaching debugger');
+			this.port.postMessage({ action: 'attachDebugger' });
+			// Don't set isDebuggerAttached here - wait for confirmation from background script
+		}
+	}
+
+	@action
+	detachDebugger() {
+		if (this.port && this.isDebuggerAttached) {
+			console.log('Detaching debugger');
+			this.port.postMessage({ action: 'detachDebugger' });
+			// Don't set isDebuggerAttached here - wait for confirmation from background script
+		}
+	}
+
 	private handlePortMessage = (message: any) => {
+		console.log('Received message from background:', JSON.stringify(message));
+
+		if (message.debuggerStatus !== undefined) {
+			console.log(`Setting debugger status to: ${message.debuggerStatus}`);
+			runInAction(() => {
+				this.isDebuggerAttached = message.debuggerStatus === 'attached';
+			});
+		}
+
 		if (message.messages) {
 			const processedMessages = message.messages
 				.map((msg: Message) => {
