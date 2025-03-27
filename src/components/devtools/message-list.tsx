@@ -4,7 +4,6 @@ import { FixedSizeList } from 'react-window';
 import { Message, MessageDirection } from './types';
 import { EmptyState } from './empty-state';
 import { useDevToolsStore } from '../../hooks/use-devtools-store';
-import { cn } from '../../utils/cn';
 import { useWindowSize } from './hooks';
 import { Drawer } from '../ui/drawer';
 import { MessageRow } from './message-row';

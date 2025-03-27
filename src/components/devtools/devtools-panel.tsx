@@ -20,6 +20,8 @@ import { NavButton } from '../ui/nav-button';
 import { MessageList } from './message-list';
 import { DirectionFilterType } from '../../stores/devtools-store';
 
+import '../../styles/index.scss';
+
 export const DevToolsPanel = observer(() => {
   const store = useDevToolsStore();
   const windowSize = useWindowSize({ width: 0, height: 64 });
@@ -104,7 +106,7 @@ export const DevToolsPanel = observer(() => {
               placeholder="Search messages..."
               value={searchTerm}
               onChange={handleSearch}
-              className="pl-8 pr-2 py-1 bg-slate-800 text-white rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="pl-8 pr-2 py-1 h-8 bg-slate-800 text-white hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
             />
           </div>
           
