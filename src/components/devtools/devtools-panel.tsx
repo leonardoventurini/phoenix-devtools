@@ -4,9 +4,21 @@ import { observer } from 'mobx-react-lite';
 import { EmptyState } from './empty-state';
 import { useWindowSize } from './hooks';
 import { useDevToolsStore } from '../../hooks/use-devtools-store';
-import { IconRefresh, IconTrash, IconBug, IconBugOff, IconSearch } from '@tabler/icons-react';
+import { 
+  IconRefresh, 
+  IconTrash, 
+  IconBug, 
+  IconBugOff, 
+  IconSearch, 
+  IconFilter, 
+  IconFilterOff, 
+  IconArrowDown, 
+  IconArrowUp, 
+  IconArrowsUpDown 
+} from '@tabler/icons-react';
 import { NavButton } from '../ui/nav-button';
 import { MessageList } from './message-list';
+import { DirectionFilterType } from '../../stores/devtools-store';
 
 export const DevToolsPanel = observer(() => {
   const store = useDevToolsStore();
@@ -38,6 +50,14 @@ export const DevToolsPanel = observer(() => {
     const value = e.target.value;
     setSearchTerm(value);
     store.setSearchTerm(value);
+  };
+
+  const handleTogglePhoenixFilter = () => {
+    store.togglePhoenixFilter();
+  };
+
+  const handleSetDirectionFilter = (filter: DirectionFilterType) => {
+    store.setDirectionFilter(filter);
   };
 
   return (
@@ -76,15 +96,59 @@ export const DevToolsPanel = observer(() => {
       </div>
 
       <div className="flex w-full justify-between items-center h-8">
-        <div className="relative flex items-center ml-1">
-          <IconSearch className="absolute left-2 size-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search messages..."
-            value={searchTerm}
-            onChange={handleSearch}
-            className="pl-8 pr-2 py-1 bg-slate-800 text-white rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
+        <div className="flex items-center ml-1 gap-2">
+          <div className="relative flex items-center">
+            <IconSearch className="absolute left-2 size-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search messages..."
+              value={searchTerm}
+              onChange={handleSearch}
+              className="pl-8 pr-2 py-1 bg-slate-800 text-white rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          
+          <div className="flex gap-px">
+            <NavButton
+              variant={store.directionFilter === 'all' ? 'success' : 'secondary'}
+              onClick={() => handleSetDirectionFilter('all')}
+              square
+            >
+              <IconArrowsUpDown className="size-4" />
+            </NavButton>
+            <NavButton
+              variant={store.directionFilter === 'inbound' ? 'success' : 'secondary'}
+              onClick={() => handleSetDirectionFilter('inbound')}
+              square
+            >
+              <IconArrowDown className="size-4" />
+            </NavButton>
+            <NavButton
+              variant={store.directionFilter === 'outbound' ? 'success' : 'secondary'}
+              onClick={() => handleSetDirectionFilter('outbound')}
+              square
+            >
+              <IconArrowUp className="size-4" />
+            </NavButton>
+          </div>
+          
+          <NavButton
+            variant={store.showPhoenixOnly ? 'success' : 'secondary'}
+            onClick={handleTogglePhoenixFilter}
+            square
+          >
+            {store.showPhoenixOnly ? (
+              <>
+                <IconFilterOff className="size-4 mr-1" />
+                All
+              </>
+            ) : (
+              <>
+                <IconFilter className="size-4 mr-1" />
+                Phoenix
+              </>
+            )}
+          </NavButton>
         </div>
         
         <NavButton

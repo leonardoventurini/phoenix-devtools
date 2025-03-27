@@ -1,4 +1,3 @@
-
 import { cn } from '@src/utils/cn'
 import { IconLoader } from '@tabler/icons-react'
 import { cva, type VariantProps } from 'class-variance-authority'
@@ -33,6 +32,11 @@ const navButtonVariants = cva(
           'bg-slate-400/10 hover:bg-slate-400/20',
           'text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-300',
           'active:bg-slate-400/30 dark:active:bg-slate-400/30',
+        ],
+        success: [
+          'bg-green-400/10 hover:bg-green-400/20',
+          'text-green-700 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300',
+          'active:bg-green-400/30 dark:active:bg-green-400/30',
         ],
         danger: [
           'bg-rose-400/10 hover:bg-rose-400/20',
@@ -112,6 +116,8 @@ export const NavButton = forwardRef<any, NavButtonProps>(
             active && variant === 'primary',
           'bg-slate-400/30 dark:bg-slate-400/30':
             active && variant === 'secondary',
+          'bg-green-400/30 dark:bg-green-400/30':
+            active && variant === 'success',
           'bg-rose-400/30 dark:bg-rose-400/30': active && variant === 'danger',
           'bg-yellow-400/30 dark:bg-yellow-400/30':
             active && variant === 'warning',

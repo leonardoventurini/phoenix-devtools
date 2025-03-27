@@ -4,6 +4,9 @@ import { BaseStore } from './base-store';
 import { Message, MessageDirection, MessageType } from '../components/devtools/types';
 import { debounce } from 'lodash';
 
+// Define a type for the direction filter options
+export type DirectionFilterType = 'all' | 'inbound' | 'outbound';
+
 export class DevToolsStore extends BaseStore {
 	@observable messages: Message[] = [];
 	@observable connections: any[] = [];
@@ -14,6 +17,8 @@ export class DevToolsStore extends BaseStore {
 	@observable outboundBytes = 0;
 	@observable isDebuggerAttached: boolean = false;
 	@observable searchTerm: string = '';
+	@observable showPhoenixOnly: boolean = false;
+	@observable directionFilter: DirectionFilterType = 'all';
 
 	constructor() {
 		super();
@@ -37,13 +42,30 @@ export class DevToolsStore extends BaseStore {
 
 	@computed
 	get filteredMessages() {
+		let filtered = this.messages;
+
+		// Apply Phoenix filter if enabled
+		if (this.showPhoenixOnly) {
+			filtered = filtered.filter((message) => message.isPhoenix);
+		}
+
+		// Apply direction filter
+		if (this.directionFilter !== 'all') {
+			filtered = filtered.filter(
+				(message) =>
+					this.directionFilter === 'inbound'
+						? message.direction === MessageDirection.Inbound
+						: message.direction === MessageDirection.Outbound
+			);
+		}
+
 		if (!this.searchTerm.trim()) {
-			return this.messages;
+			return filtered;
 		}
 
 		const normalizedSearchTerm = this.normalizeText(this.searchTerm.trim().toLowerCase());
 
-		return this.messages.filter((message) => {
+		return filtered.filter((message) => {
 			// Create a searchable string from all message fields
 			const searchString = this.createSearchString(message);
 			const normalizedSearchString = this.normalizeText(searchString);
@@ -102,6 +124,16 @@ export class DevToolsStore extends BaseStore {
 	@action
 	setSearchTerm(term: string) {
 		this.searchTerm = term;
+	}
+
+	@action
+	togglePhoenixFilter() {
+		this.showPhoenixOnly = !this.showPhoenixOnly;
+	}
+
+	@action
+	setDirectionFilter(filter: DirectionFilterType) {
+		this.directionFilter = filter;
 	}
 
 	// Detect Phoenix messages by checking the message content or associated connection
