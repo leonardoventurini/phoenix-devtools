@@ -66,16 +66,16 @@ export const MessageDetails: React.FC<MessageDetailsProps> = ({ message }) => {
         {message && (
           <div className="space-y-2">
             <div className="flex justify-between">
-              <span className="text-sm font-medium">Direction:</span>
-              <span className="text-sm">{message.direction}</span>
+              <span className="text-sm font-medium text-gray-200">Direction:</span>
+              <span className="text-sm text-gray-300">{message.direction}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm font-medium">Size:</span>
-              <span className="text-sm">{message.size} bytes</span>
+              <span className="text-sm font-medium text-gray-200">Size:</span>
+              <span className="text-sm text-gray-300">{message.size} bytes</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-sm font-medium">Time:</span>
-              <span className="text-sm">{new Date(message.timestamp).toLocaleString()}</span>
+              <span className="text-sm font-medium text-gray-200">Time:</span>
+              <span className="text-sm text-gray-300">{new Date(message.timestamp).toLocaleString()}</span>
             </div>
           </div>
         )}
