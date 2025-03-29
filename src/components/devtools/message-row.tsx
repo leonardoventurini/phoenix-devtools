@@ -52,17 +52,39 @@ export const MessageRow: React.FC<MessageRowProps> = ({ message, isNew, onMessag
       parsedData = { error: "Unable to parse data" };
     }
 
-    if (isInbound && parsedData.response) {
-      const { url, status, statusText } = parsedData.response;
-      label = `${status} ${statusText}`;
-      details = url || 'Unknown URL';
-    } else if (!isInbound && parsedData.request) {
-      const { url, method } = parsedData.request;
-      label = method || 'Unknown';
-      details = url || 'Unknown URL';
+    // Logic for handling different response formats
+    if (isInbound) {
+      // Response message
+      if (parsedData.status !== undefined) {
+        // Direct response object format
+        label = `${parsedData.status} ${parsedData.statusText || ''}`;
+        details = parsedData.url || 'Unknown URL';
+      } else if (parsedData.responseInfo) {
+        // Nested responseInfo format
+        const { status, statusText, url } = parsedData.responseInfo;
+        label = `${status} ${statusText || ''}`;
+        details = url || 'Unknown URL';
+      } else {
+        // Generic fallback
+        label = 'Response';
+        details = parsedData.url || 'Unknown URL';
+      }
     } else {
-      label = isInbound ? 'Response' : 'Request';
-      details = 'Unknown URL';
+      // Request message
+      if (parsedData.method !== undefined) {
+        // Direct request object format
+        label = parsedData.method || 'Unknown Method';
+        details = parsedData.url || 'Unknown URL';
+      } else if (parsedData.requestInfo) {
+        // Nested requestInfo format
+        const { method, url } = parsedData.requestInfo;
+        label = method || 'Unknown Method';
+        details = url || 'Unknown URL'; 
+      } else {
+        // Generic fallback
+        label = 'Request';
+        details = parsedData.url || 'Unknown URL';
+      }
     }
     
     typeLabel = 'HTTP';

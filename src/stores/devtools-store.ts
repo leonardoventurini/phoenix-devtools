@@ -18,10 +18,19 @@ export class DevToolsStore extends BaseStore {
 	@observable searchTerm: string = '';
 	@observable showPhoenixOnly: boolean = false;
 	@observable directionFilter: DirectionFilterType = 'all';
+	@observable selectedMessage: Message | null = null;
+	@observable filter: string = '';
+	@observable currentTabId: number | null = null;  // Add tab tracking
 
 	constructor() {
 		super();
 		makeObservable(this);
+		
+		// Get current tab ID
+		this.getCurrentTabId();
+		
+		// Initialize connection to background script
+		this.connectToDevTools();
 	}
 
 	@computed
@@ -42,6 +51,14 @@ export class DevToolsStore extends BaseStore {
 	@computed
 	get filteredMessages() {
 		let filtered = this.messages;
+		
+		// Apply tab ID filter if set
+		if (this.currentTabId !== null) {
+			filtered = filtered.filter(message => 
+				// Only include messages from current tab or those without a tabId
+				!message.tabId || message.tabId === this.currentTabId
+			);
+		}
 
 		// Apply Phoenix filter if enabled
 		if (this.showPhoenixOnly) {
@@ -362,4 +379,44 @@ export class DevToolsStore extends BaseStore {
 			this.newMessages = [];
 		});
 	}, 1000);
+
+	// Get current tab ID from the browser
+	private async getCurrentTabId() {
+		try {
+			// Use browser API to get current tab
+			const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+			if (tabs.length > 0 && tabs[0].id) {
+				this.currentTabId = tabs[0].id;
+				// Re-filter messages
+				this.filterMessages();
+			}
+		} catch (error) {
+			console.error('Error getting current tab:', error);
+		}
+	}
+
+	// Filter messages according to current filter settings and tab ID
+	@action
+	private filterMessages() {
+		// Apply the filters using the existing computed filteredMessages getter
+		// This just forces a re-evaluation of the computed property
+		this._forceUpdate();
+	}
+	
+	@action
+	private _forceUpdate() {
+		// Force mobx to re-evaluate computed properties
+		this.messages = [...this.messages];
+	}
+	
+	// Check if a message contains the search term
+	private messageMatchesSearch(message: Message, searchTerm: string): boolean {
+		// Create a searchable string from all message fields
+		const searchString = this.createSearchString(message);
+		const normalizedSearchString = this.normalizeText(searchString);
+		const normalizedTerm = this.normalizeText(searchTerm);
+
+		// Perform simple substring search
+		return this.performSearch(normalizedSearchString, normalizedTerm);
+	}
 }

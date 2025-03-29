@@ -83,10 +83,12 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 	if (request.action === 'phoenix-message' && request.message) {
 		// Hash the message
 		hashMessage(JSON.stringify(request.message)).then((messageHash) => {
-			// Add the hash to the message
+			// Add the hash to the message and ensure tabId is set
 			const message = {
 				...request.message,
-				hash: messageHash
+				hash: messageHash,
+				// Use tabId from message if available, otherwise from sender
+				tabId: request.message.tabId || sender.tab?.id
 			};
 
 			// Store in local storage
@@ -107,11 +109,16 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 				});
 			});
 		});
+	} else if (request.action === 'get-current-tab-id') {
+		// Return the current tab ID to the content script
+		sendResponse({ tabId: sender.tab?.id });
+		return true; // Keep the message channel open for the async response
 	} else if (request.action === 'phoenix-connection-info' && request.connectionInfo) {
 		// Store Phoenix connection info
 		const connectionInfo = {
 			...request.connectionInfo,
-			tabId: sender.tab?.id,
+			// Use explicit tabId from the request if available, otherwise use sender.tab.id
+			tabId: request.tabId || sender.tab?.id,
 			timestamp: Date.now(),
 			isPhoenix: true
 		};
@@ -143,8 +150,9 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 		chrome.storage.local.get(['websocketConnections'], function(result) {
 			let connections = result.websocketConnections || [];
 			
-			// Find the connection for this tab
-			const tabIndex = connections.findIndex((conn: any) => conn.tabId === sender.tab?.id);
+			// Find the connection for this tab - use tabId from request if available
+			const tabId = request.tabId || sender.tab?.id;
+			const tabIndex = connections.findIndex((conn: any) => conn.tabId === tabId);
 			if (tabIndex !== -1) {
 				// Update the channels
 				connections[tabIndex].channels = request.channels;

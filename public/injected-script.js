@@ -1,6 +1,12 @@
 (function() {
+  let currentTabId = null;
+
   // Listen for the event to start the interception
-  window.addEventListener('phx-devtools:start-interception', function() {
+  window.addEventListener('phx-devtools:start-interception', function(event) {
+    // Extract tab ID from the event if provided
+    if (event.detail && event.detail.tabId) {
+      currentTabId = event.detail.tabId;
+    }
     checkForLiveSocket();
   });
 
@@ -25,7 +31,7 @@
       console.log('Phoenix connection info', connectionInfo);
       
       window.dispatchEvent(new CustomEvent('phoenix:connection:info', {
-        detail: { connectionInfo }
+        detail: { connectionInfo, tabId: currentTabId }
       }));
       
       // Override the send method to intercept outgoing messages
@@ -45,7 +51,8 @@
         window.dispatchEvent(new CustomEvent('phoenix:message:outbound', {
           detail: { 
             data,
-            parsedData
+            parsedData,
+            tabId: currentTabId
           }
         }));
         
@@ -65,7 +72,8 @@
         window.dispatchEvent(new CustomEvent('phoenix:message:inbound', {
           detail: { 
             data: event.data,
-            parsedData
+            parsedData,
+            tabId: currentTabId
           }
         }));
       });
@@ -87,7 +95,7 @@
           });
           
           window.dispatchEvent(new CustomEvent('phoenix:channels:updated', {
-            detail: { channels: updatedChannels }
+            detail: { channels: updatedChannels, tabId: currentTabId }
           }));
         }, 100);
         
@@ -100,23 +108,8 @@
         const startTime = Date.now();
         const url = typeof input === 'string' ? input : input.url;
         
-        // Check if this request is related to Phoenix
-        const isPhoenixRequest = window.liveSocket && (
-          // Check if the URL matches the Phoenix socket URL pattern
-          url.includes('/live') || 
-          url.includes('/phoenix') || 
-          url.includes('/socket') ||
-          // Other common Phoenix paths
-          url.includes('/user_socket') ||
-          // Check if headers contain Phoenix-specific tokens
-          (init?.headers && (
-            JSON.stringify(init.headers).includes('_csrf_token') ||
-            JSON.stringify(init.headers).includes('phx-') ||
-            JSON.stringify(init.headers).includes('live_socket_id')
-          ))
-        );
-        
-        // Prepare outbound message
+        // Always capture HTTP requests regardless of Phoenix detection
+        // This ensures we don't miss any relevant requests
         const requestInfo = {
           url,
           method: init?.method || 'GET',
@@ -124,12 +117,10 @@
           body: init?.body || null
         };
         
-        if (isPhoenixRequest) {
-          // Dispatch outbound event
-          window.dispatchEvent(new CustomEvent('phoenix:http:outbound', {
-            detail: { requestInfo }
-          }));
-        }
+        // Always dispatch the event for all requests
+        window.dispatchEvent(new CustomEvent('phoenix:http:outbound', {
+          detail: { requestInfo, tabId: currentTabId }
+        }));
         
         try {
           // Execute original fetch
@@ -144,30 +135,26 @@
             responseBody = "[unable to read response body]";
           }
           
-          if (isPhoenixRequest) {
-            // Prepare and dispatch response info
-            const responseInfo = {
-              url,
-              status: response.status,
-              statusText: response.statusText,
-              headers: Object.fromEntries([...response.headers.entries()]),
-              body: responseBody,
-              time: Date.now() - startTime
-            };
-            
-            window.dispatchEvent(new CustomEvent('phoenix:http:inbound', {
-              detail: { responseInfo }
-            }));
-          }
+          // Always dispatch response event for all requests
+          const responseInfo = {
+            url,
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries([...response.headers.entries()]),
+            body: responseBody,
+            time: Date.now() - startTime
+          };
+          
+          window.dispatchEvent(new CustomEvent('phoenix:http:inbound', {
+            detail: { responseInfo, tabId: currentTabId }
+          }));
           
           return response;
         } catch (error) {
-          if (isPhoenixRequest) {
-            // Dispatch error event
-            window.dispatchEvent(new CustomEvent('phoenix:http:error', {
-              detail: { url, error: error.message, time: Date.now() - startTime }
-            }));
-          }
+          // Dispatch error event for all requests
+          window.dispatchEvent(new CustomEvent('phoenix:http:error', {
+            detail: { url, error: error.message, time: Date.now() - startTime, tabId: currentTabId }
+          }));
           throw error;
         }
       };
@@ -188,82 +175,72 @@
         const url = this._phxDevToolsUrl;
         const method = this._phxDevToolsMethod;
         
-        // Check if this request is related to Phoenix
-        const isPhoenixRequest = window.liveSocket && (
-          // Check if the URL matches the Phoenix socket URL pattern
-          url.includes('/live') || 
-          url.includes('/phoenix') || 
-          url.includes('/socket') ||
-          // Other common Phoenix paths
-          url.includes('/user_socket')
-        );
+        // Always capture HTTP requests regardless of Phoenix detection
+        const requestInfo = {
+          url,
+          method,
+          body
+        };
         
-        if (isPhoenixRequest) {
-          // Get headers by using getAllResponseHeaders which will only work after the response
-          // So we'll capture them in the load event
-          const requestInfo = {
-            url,
-            method,
-            body
-          };
-          
-          // Dispatch outbound event
-          window.dispatchEvent(new CustomEvent('phoenix:http:outbound', {
-            detail: { requestInfo }
-          }));
-          
-          // Add response event listeners
-          this.addEventListener('load', () => {
-            const responseHeaders = {};
-            const headerString = this.getAllResponseHeaders();
-            if (headerString) {
-              const headerPairs = headerString.split('\r\n');
-              for (let i = 0; i < headerPairs.length; i++) {
-                const headerPair = headerPairs[i];
-                const index = headerPair.indexOf(': ');
-                if (index > 0) {
-                  const key = headerPair.substring(0, index);
-                  const val = headerPair.substring(index + 2);
-                  responseHeaders[key] = val;
-                }
+        // Always dispatch outbound event
+        window.dispatchEvent(new CustomEvent('phoenix:http:outbound', {
+          detail: { requestInfo, tabId: currentTabId }
+        }));
+        
+        // Add response event listeners
+        this.addEventListener('load', () => {
+          const responseHeaders = {};
+          const headerString = this.getAllResponseHeaders();
+          if (headerString) {
+            const headerPairs = headerString.split('\r\n');
+            for (let i = 0; i < headerPairs.length; i++) {
+              const headerPair = headerPairs[i];
+              const index = headerPair.indexOf(': ');
+              if (index > 0) {
+                const key = headerPair.substring(0, index);
+                const val = headerPair.substring(index + 2);
+                responseHeaders[key] = val;
               }
             }
-            
-            const responseInfo = {
-              url,
-              status: this.status,
-              statusText: this.statusText,
-              headers: responseHeaders,
-              body: this.responseText,
-              time: Date.now() - this._phxDevToolsStartTime
-            };
-            
-            window.dispatchEvent(new CustomEvent('phoenix:http:inbound', {
-              detail: { responseInfo }
-            }));
-          });
+          }
           
-          this.addEventListener('error', () => {
-            window.dispatchEvent(new CustomEvent('phoenix:http:error', {
-              detail: { 
-                url, 
-                error: 'Network error', 
-                time: Date.now() - this._phxDevToolsStartTime 
-              }
-            }));
-          });
-        }
+          const responseInfo = {
+            url,
+            status: this.status,
+            statusText: this.statusText,
+            headers: responseHeaders,
+            body: this.responseText,
+            time: Date.now() - this._phxDevToolsStartTime
+          };
+          
+          window.dispatchEvent(new CustomEvent('phoenix:http:inbound', {
+            detail: { responseInfo, tabId: currentTabId }
+          }));
+        });
+        
+        this.addEventListener('error', () => {
+          window.dispatchEvent(new CustomEvent('phoenix:http:error', {
+            detail: { 
+              url, 
+              error: 'Network error', 
+              time: Date.now() - this._phxDevToolsStartTime,
+              tabId: currentTabId 
+            }
+          }));
+        });
         
         return originalXHRSend.apply(this, arguments);
       };
       
       // Signal that we've hooked into liveSocket
       window.dispatchEvent(new CustomEvent('phoenix:devtools:ready', {
-        detail: { status: 'ready' }
+        detail: { status: 'ready', tabId: currentTabId }
       }));
     } else {
       // Report that liveSocket wasn't found
-      window.dispatchEvent(new CustomEvent('phoenix:devtools:not-found'));
+      window.dispatchEvent(new CustomEvent('phoenix:devtools:not-found', {
+        detail: { tabId: currentTabId }
+      }));
     }
   }
 })(); 

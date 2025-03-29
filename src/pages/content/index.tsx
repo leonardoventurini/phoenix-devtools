@@ -38,8 +38,17 @@ function interceptPhoenixMessages() {
   script.onload = function() {
     // Clean up once loaded
     script.remove();
-    // Signal to start the interception
-    window.dispatchEvent(new CustomEvent('phx-devtools:start-interception'));
+    // Signal to start the interception with the current tab ID
+    chrome.runtime.sendMessage({ action: 'get-current-tab-id' }, function(response) {
+      if (response && response.tabId) {
+        window.dispatchEvent(new CustomEvent('phx-devtools:start-interception', {
+          detail: { tabId: response.tabId }
+        }));
+      } else {
+        // Fallback if we can't get the tab ID
+        window.dispatchEvent(new CustomEvent('phx-devtools:start-interception'));
+      }
+    });
   };
   
   // Add the script to the page
@@ -55,7 +64,15 @@ function interceptPhoenixMessages() {
     // Try again after a delay
     console.log('Phoenix LiveSocket not found, will continue checking');
     setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('phx-devtools:start-interception'));
+      chrome.runtime.sendMessage({ action: 'get-current-tab-id' }, function(response) {
+        if (response && response.tabId) {
+          window.dispatchEvent(new CustomEvent('phx-devtools:start-interception', {
+            detail: { tabId: response.tabId }
+          }));
+        } else {
+          window.dispatchEvent(new CustomEvent('phx-devtools:start-interception'));
+        }
+      });
     }, 1000);
   });
 }
@@ -67,11 +84,13 @@ function setupPageToContentScriptEvents() {
     const customEvent = event as CustomEvent;
     console.log('Phoenix connection info', customEvent);
     const connectionInfo = customEvent.detail?.connectionInfo;
+    const tabId = customEvent.detail?.tabId;
     
     // Send to background script
     chrome.runtime.sendMessage({ 
       action: 'phoenix-connection-info', 
-      connectionInfo 
+      connectionInfo,
+      tabId
     });
   }) as EventListener);
   
@@ -79,18 +98,20 @@ function setupPageToContentScriptEvents() {
   window.addEventListener('phoenix:channels:updated', ((event: Event) => {
     const customEvent = event as CustomEvent;
     const channels = customEvent.detail.channels;
+    const tabId = customEvent.detail.tabId;
     
     // Send to background script
     chrome.runtime.sendMessage({ 
       action: 'phoenix-channels-updated', 
-      channels 
+      channels,
+      tabId
     });
   }) as EventListener);
   
   // Listen for outbound messages
   window.addEventListener('phoenix:message:outbound', ((event: Event) => {
     const customEvent = event as CustomEvent;
-    const { data, parsedData } = customEvent.detail;
+    const { data, parsedData, tabId } = customEvent.detail;
     
     const message: Partial<Message> = {
       method: 'Phoenix.send',
@@ -100,7 +121,8 @@ function setupPageToContentScriptEvents() {
       direction: MessageDirection.Outbound,
       size: new TextEncoder().encode(data).length,
       isPhoenix: true,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      tabId
     };
     
     // Send to background script
@@ -110,7 +132,7 @@ function setupPageToContentScriptEvents() {
   // Listen for inbound messages
   window.addEventListener('phoenix:message:inbound', ((event: Event) => {
     const customEvent = event as CustomEvent;
-    const { data, parsedData } = customEvent.detail;
+    const { data, parsedData, tabId } = customEvent.detail;
     
     const message: Partial<Message> = {
       method: 'Phoenix.receive',
@@ -120,7 +142,8 @@ function setupPageToContentScriptEvents() {
       direction: MessageDirection.Inbound,
       size: new TextEncoder().encode(data).length,
       isPhoenix: true,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      tabId
     };
     
     // Send to background script
@@ -130,17 +153,24 @@ function setupPageToContentScriptEvents() {
   // Listen for HTTP outbound requests
   window.addEventListener('phoenix:http:outbound', ((event: Event) => {
     const customEvent = event as CustomEvent;
-    const { requestInfo } = customEvent.detail;
+    const { requestInfo, tabId } = customEvent.detail;
+    
+    // Check if requestInfo is valid
+    if (!requestInfo || typeof requestInfo !== 'object') {
+      console.error('Invalid request info received', requestInfo);
+      return;
+    }
     
     const message: Partial<Message> = {
-      method: `HTTP.${requestInfo.method}`,
+      method: `HTTP.${requestInfo.method || 'REQUEST'}`,
       data: safeStringify(requestInfo),
       parsedData: safeStringify(requestInfo),
       type: MessageType.Http,
       direction: MessageDirection.Outbound,
       size: new TextEncoder().encode(JSON.stringify(requestInfo)).length,
-      isPhoenix: true,
-      timestamp: Date.now()
+      isPhoenix: true, // Mark all as Phoenix for now, filtering can happen in devtools
+      timestamp: Date.now(),
+      tabId
     };
     
     // Send to background script
@@ -150,17 +180,24 @@ function setupPageToContentScriptEvents() {
   // Listen for HTTP inbound responses
   window.addEventListener('phoenix:http:inbound', ((event: Event) => {
     const customEvent = event as CustomEvent;
-    const { responseInfo } = customEvent.detail;
+    const { responseInfo, tabId } = customEvent.detail;
+    
+    // Check if responseInfo is valid
+    if (!responseInfo || typeof responseInfo !== 'object') {
+      console.error('Invalid response info received', responseInfo);
+      return;
+    }
     
     const message: Partial<Message> = {
-      method: `HTTP.Response.${responseInfo.status}`,
+      method: `HTTP.Response.${responseInfo.status || 'UNKNOWN'}`,
       data: safeStringify(responseInfo),
       parsedData: safeStringify(responseInfo),
       type: MessageType.Http,
       direction: MessageDirection.Inbound,
       size: new TextEncoder().encode(JSON.stringify(responseInfo)).length,
-      isPhoenix: true,
-      timestamp: Date.now()
+      isPhoenix: true, // Mark all as Phoenix for now, filtering can happen in devtools
+      timestamp: Date.now(),
+      tabId
     };
     
     // Send to background script
@@ -171,6 +208,13 @@ function setupPageToContentScriptEvents() {
   window.addEventListener('phoenix:http:error', ((event: Event) => {
     const customEvent = event as CustomEvent;
     const errorInfo = customEvent.detail;
+    const tabId = customEvent.detail.tabId;
+    
+    // Check if errorInfo is valid
+    if (!errorInfo || typeof errorInfo !== 'object') {
+      console.error('Invalid error info received', errorInfo);
+      return;
+    }
     
     const message: Partial<Message> = {
       method: 'HTTP.Error',
@@ -179,8 +223,9 @@ function setupPageToContentScriptEvents() {
       type: MessageType.Http,
       direction: MessageDirection.Inbound,
       size: new TextEncoder().encode(JSON.stringify(errorInfo)).length,
-      isPhoenix: true,
-      timestamp: Date.now()
+      isPhoenix: true, // Mark all as Phoenix for now, filtering can happen in devtools
+      timestamp: Date.now(),
+      tabId
     };
     
     // Send to background script
