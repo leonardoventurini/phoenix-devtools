@@ -68,6 +68,46 @@ export const MessageRow: React.FC<MessageRowProps> = ({ message, isNew, onMessag
     typeLabel = 'HTTP';
   }
   
+  // Try to extract Phoenix-specific details
+  let phoenixDetails = '';
+  let phoenixEventType = '';
+  
+  if (message.isPhoenix) {
+    try {
+      // Try to use parsedData if available
+      if (message.parsedData) {
+        const parsed = JSON.parse(message.parsedData);
+        
+        // Handle Phoenix array format: ["3","3","phoenix:live_reload","phx_join",{}]
+        if (Array.isArray(parsed) && parsed.length >= 4) {
+          phoenixEventType = parsed[3]; // Event type
+          phoenixDetails = `${parsed[2]} → ${parsed[3]}`; // Topic and event
+        } 
+        // Handle object format with topic and event
+        else if (parsed.topic && parsed.event) {
+          phoenixEventType = parsed.event;
+          phoenixDetails = `${parsed.topic} → ${parsed.event}`;
+        }
+      } else {
+        // Fall back to trying to parse the data directly
+        const parsed = JSON.parse(message.data);
+        
+        if (Array.isArray(parsed) && parsed.length >= 4) {
+          phoenixEventType = parsed[3];
+          phoenixDetails = `${parsed[2]} → ${parsed[3]}`;
+        } else if (parsed.topic && parsed.event) {
+          phoenixEventType = parsed.event;
+          phoenixDetails = `${parsed.topic} → ${parsed.event}`;
+        }
+      }
+    } catch (e) {
+      // If parsing fails, use empty string
+    }
+  }
+  
+  // Use Phoenix-specific details if available, otherwise use generic details
+  details = phoenixDetails || details;
+  
   return (
     <div 
       className={cn("border cursor-pointer border-gray-700 rounded-md h-7 flex items-center overflow-hidden hover:bg-gray-800 transition-colors px-1.5", {
@@ -106,6 +146,9 @@ export const MessageRow: React.FC<MessageRowProps> = ({ message, isNew, onMessag
         {isWebSocket && message.isPhoenix && (
           <span className="px-1 py-0.5 text-[10px] rounded-full bg-purple-900 text-purple-300 mr-1">
             PHX
+            {phoenixEventType && (
+              <span className="ml-1">{phoenixEventType.replace('phx_', '')}</span>
+            )}
           </span>
         )}
         

@@ -9,56 +9,38 @@ interface MessageDetailsProps {
 }
 
 export const MessageDetails: React.FC<MessageDetailsProps> = ({ message }) => {
-  // Format message data for display
-  const getFormattedMessageData = () => {
-    if (!message) return '';
-    
-    try {
-      // For WebSocket messages, try to parse as JSON
-      if (message.type === MessageType.WebSocket) {
-        const parsedData = JSON.parse(message.data);
-        return JSON.stringify(parsedData, null, 2);
-      } 
-      
-      // For HTTP messages, try to parse it first
-      if (message.type === MessageType.Http) {
-        try {
-          const parsedData = JSON.parse(message.data);
-          
-          // Extract request/response based on direction
-          if (message.direction === MessageDirection.Inbound && parsedData.response) {
-            return JSON.stringify(parsedData.response, null, 2);
-          } else if (message.direction === MessageDirection.Outbound && parsedData.request) {
-            return JSON.stringify(parsedData.request, null, 2);
-          }
-          
-          // Fallback to the full data
-          return JSON.stringify(parsedData, null, 2);
-        } catch (e) {
-          // If not valid JSON, return as is
-          return message.data;
-        }
-      }
-      
-      // Default case
-      return message.data;
-    } catch (e) {
-      // If parsing fails, return as is
-      return message.data;
-    }
-  };
+  // Determine message direction
+  const directionText = message?.direction === MessageDirection.Inbound ? 'Received' : 'Sent';
+  
+  // Calculate message time
+  const messageTime = message ? new Date(message.timestamp).toLocaleString() : '';
 
-  // Determine if content is JSON
-  const isJsonContent = () => {
-    if (!message) return false;
-    
-    try {
-      JSON.parse(message.data);
-      return true;
-    } catch (e) {
-      return false;
+  // Try to parse and format the data
+  let formattedData = message?.data || '';
+  let parsedData: any = null;
+  let isJson = false;
+
+  try {
+    if (!message) {
+      // No message available
     }
-  };
+    // First check if we have pre-parsed data
+    else if (message.parsedData) {
+      parsedData = JSON.parse(message.parsedData);
+      isJson = true;
+    } else {
+      // Otherwise try to parse the raw data
+      parsedData = JSON.parse(message.data);
+      isJson = true;
+    }
+    
+    // Format the JSON for display
+    if (parsedData) {
+      formattedData = JSON.stringify(parsedData, null, 2);
+    }
+  } catch (e) {
+    // Not valid JSON, keep original
+  }
 
   return (
     <div className="h-full">
@@ -67,7 +49,7 @@ export const MessageDetails: React.FC<MessageDetailsProps> = ({ message }) => {
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-sm font-medium text-gray-200">Direction:</span>
-              <span className="text-sm text-gray-300">{message.direction}</span>
+              <span className="text-sm text-gray-300">{directionText}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm font-medium text-gray-200">Size:</span>
@@ -75,20 +57,19 @@ export const MessageDetails: React.FC<MessageDetailsProps> = ({ message }) => {
             </div>
             <div className="flex justify-between">
               <span className="text-sm font-medium text-gray-200">Time:</span>
-              <span className="text-sm text-gray-300">{new Date(message.timestamp).toLocaleString()}</span>
+              <span className="text-sm text-gray-300">{messageTime}</span>
             </div>
           </div>
         )}
       </div>
       <div className="h-[calc(100%-6rem)] overflow-auto">
         {(() => {
-          const formattedData = getFormattedMessageData();
           return formattedData ? (
             <CodeMirror
               value={formattedData}
               height="100%"
               theme={atomone}
-              extensions={isJsonContent() ? [json()] : []}
+              extensions={isJson ? [json()] : []}
               readOnly={true}
               basicSetup={{
                 lineNumbers: true,

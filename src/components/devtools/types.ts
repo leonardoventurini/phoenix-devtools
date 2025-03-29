@@ -7,6 +7,7 @@ export interface Message {
 	size: number;
 	isPhoenix?: boolean;
 	timestamp: number;
+	parsedData?: string;
 }
 
 export enum MessageType {
