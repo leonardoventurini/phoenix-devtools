@@ -98,7 +98,7 @@ export const DevToolsPanel = observer(() => {
       </div>
 
       <div className="flex w-full justify-between items-center h-8">
-        <div className="flex items-center ml-1 gap-2">
+        <div className="flex items-center">
           <div className="relative flex items-center">
             <IconSearch className="absolute left-2 size-4 text-slate-400" />
             <input
@@ -109,6 +109,8 @@ export const DevToolsPanel = observer(() => {
               className="pl-8 pr-2 py-1 h-8 bg-slate-800 text-white hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
             />
           </div>
+
+          <Separator />
           
           <div className="flex gap-px">
             <NavButton
@@ -133,6 +135,8 @@ export const DevToolsPanel = observer(() => {
               <IconArrowUp className="size-4" />
             </NavButton>
           </div>
+
+          <Separator />
           
           <NavButton
             variant={store.showPhoenixOnly ? 'success' : 'secondary'}
@@ -165,3 +169,10 @@ export const DevToolsPanel = observer(() => {
     </div>
   );
 }); 
+
+
+function Separator() {
+  return (
+    <div className="w-px h-full bg-slate-600" />
+  )
+}
