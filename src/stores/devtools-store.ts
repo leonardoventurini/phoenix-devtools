@@ -15,14 +15,22 @@ export class DevToolsStore extends BaseStore {
 	@observable newMessages: string[] = [];
 	@observable inboundBytes = 0;
 	@observable outboundBytes = 0;
-	@observable isDebuggerAttached: boolean = false;
 	@observable searchTerm: string = '';
 	@observable showPhoenixOnly: boolean = false;
 	@observable directionFilter: DirectionFilterType = 'all';
+	@observable selectedMessage: Message | null = null;
+	@observable filter: string = '';
+	@observable currentTabId: number | null = null;  // Add tab tracking
 
 	constructor() {
 		super();
 		makeObservable(this);
+		
+		// Get current tab ID
+		this.getCurrentTabId();
+		
+		// Initialize connection to background script
+		this.connectToDevTools();
 	}
 
 	@computed
@@ -43,6 +51,14 @@ export class DevToolsStore extends BaseStore {
 	@computed
 	get filteredMessages() {
 		let filtered = this.messages;
+		
+		// Apply tab ID filter if set
+		if (this.currentTabId !== null) {
+			filtered = filtered.filter(message => 
+				// Only include messages from current tab or those without a tabId
+				!message.tabId || message.tabId === this.currentTabId
+			);
+		}
 
 		// Apply Phoenix filter if enabled
 		if (this.showPhoenixOnly) {
@@ -138,72 +154,128 @@ export class DevToolsStore extends BaseStore {
 
 	// Detect Phoenix messages by checking the message content or associated connection
 	private isPhoenixMessage(message: Message): boolean {
-		// Try to detect Phoenix message by its content structure
-		try {
-			// First, try to parse the message
-			const data = JSON.parse(message.data);
+		// If the message is already marked as Phoenix, return true
+		if (message.isPhoenix) {
+			return true;
+		}
+		
+		// If it's an HTTP message with method prefixed with 'HTTP.' that was detected as Phoenix by the content script
+		if (message.type === MessageType.Http && 
+			(message.method.startsWith('HTTP.'))) {
+			return true;
+		}
+		
+		// Try to detect Phoenix message by its content structure for WebSocket messages
+		if (message.type === MessageType.WebSocket) {
+			try {
+				// First, try to parse the message
+				const data = JSON.parse(message.data);
 
-			// Check for Phoenix array format: ["3","3","phoenix:live_reload","phx_join",{}]
-			if (Array.isArray(data)) {
-				// Phoenix messages as arrays typically have a topic in position 2 and event in position 3
-				if (data.length >= 4) {
-					const topic = data[2];
-					const event = data[3];
+				// Check for Phoenix array format: ["3","3","phoenix:live_reload","phx_join",{}]
+				if (Array.isArray(data)) {
+					// Phoenix messages as arrays typically have a topic in position 2 and event in position 3
+					if (data.length >= 4) {
+						const topic = data[2];
+						const event = data[3];
 
-					// Check for known Phoenix patterns
-					if (
-						// Handle both string topics and check phoenix directly
-						(typeof topic === 'string' && (topic.includes('phoenix') || topic.startsWith('lv:'))) ||
-						// Handle case where "phoenix" is the direct channel/topic name
-						topic === 'phoenix'
-					) {
-						return true;
+						// Check for known Phoenix patterns
+						if (
+							// Handle both string topics and check phoenix directly
+							(typeof topic === 'string' && (topic.includes('phoenix') || topic.startsWith('lv:'))) ||
+							// Handle case where "phoenix" is the direct channel/topic name
+							topic === 'phoenix'
+						) {
+							return true;
+						}
+
+						// Check for Phoenix events (regardless of topic)
+						if (typeof event === 'string' && (event.startsWith('phx_') || event === 'heartbeat')) {
+							return true;
+						}
 					}
+				}
 
-					// Check for Phoenix events (regardless of topic)
-					if (typeof event === 'string' && (event.startsWith('phx_') || event === 'heartbeat')) {
+				// Continue with the existing object format checks
+				// Phoenix messages typically have topic, event, payload, and ref fields
+				if (data.topic && data.event && data.payload !== undefined && data.ref !== undefined) {
+					return true;
+				}
+
+				// Phoenix events have specific names like phx_join, phx_reply, phx_error, etc.
+				if (
+					data.event &&
+					typeof data.event === 'string' &&
+					(data.event.startsWith('phx_') || data.event.includes('phoenix'))
+				) {
+					return true;
+				}
+
+				// Check for Phoenix LiveView specific message patterns
+				if (
+					data.event === 'live_patch' ||
+					data.event === 'live_redirect' ||
+					(data.topic && data.topic.startsWith('lv:'))
+				) {
+					return true;
+				}
+			} catch (e) {
+				// Not JSON or couldn't parse - continue with URL-based checks
+			}
+		}
+		
+		// For HTTP messages, try to check if this is related to Phoenix
+		if (message.type === MessageType.Http) {
+			try {
+				// Try to parse the data
+				const data = JSON.parse(message.data);
+				
+				// For request or response with URL patterns related to Phoenix
+				const url = data.url || (data.request && data.request.url) || (data.response && data.response.url);
+				
+				if (url && typeof url === 'string') {
+					if (url.includes('/live') || 
+						url.includes('/phoenix') || 
+						url.includes('/socket') ||
+						url.includes('/user_socket') ||
+						url.endsWith('/websocket')) {
 						return true;
 					}
 				}
-			}
-
-			// Continue with the existing object format checks
-			// Phoenix messages typically have topic, event, payload, and ref fields
-			if (data.topic && data.event && data.payload !== undefined && data.ref !== undefined) {
-				return true;
-			}
-
-			// Phoenix events have specific names like phx_join, phx_reply, phx_error, etc.
-			if (
-				data.event &&
-				typeof data.event === 'string' &&
-				(data.event.startsWith('phx_') || data.event.includes('phoenix'))
-			) {
-				return true;
-			}
-
-			// Check for Phoenix LiveView specific message patterns
-			if (
-				data.event === 'live_patch' ||
-				data.event === 'live_redirect' ||
-				(data.topic && data.topic.startsWith('lv:'))
-			) {
-				return true;
-			}
-		} catch (e) {
-			// Not JSON or couldn't parse - continue with URL-based checks
-		}
-
-		// If we have connection info, check if this message is from a Phoenix socket
-		if (this.connections.length > 0) {
-			// In a real implementation, we would have a way to associate messages with connections
-			// This is a placeholder for that logic
-			const isFromPhoenixConnection = this.connections.some((conn) => conn.isPhoenix);
-			if (isFromPhoenixConnection) {
-				return true;
+				
+				// Check for Phoenix-related headers
+				const headers = data.headers || 
+					(data.request && data.request.headers) || 
+					(data.response && data.response.headers);
+				
+				if (headers) {
+					const headerString = JSON.stringify(headers).toLowerCase();
+					if (headerString.includes('phx-') || 
+						headerString.includes('_csrf_token') || 
+						headerString.includes('live_socket_id')) {
+						return true;
+					}
+				}
+				
+				// Check for known Phoenix response patterns in body
+				const body = data.body || 
+					(data.request && data.request.body) || 
+					(data.response && data.response.body);
+				
+				if (body && typeof body === 'string') {
+					if (body.includes('phx-') || 
+						body.includes('data-phx') || 
+						body.includes('LiveView') ||
+						body.includes('_csrf_token') ||
+						body.includes('phx:page-loading')) {
+						return true;
+					}
+				}
+			} catch (e) {
+				// Not JSON or couldn't parse, can't determine if it's Phoenix-related
 			}
 		}
-
+		
+		// No Phoenix indicator found
 		return false;
 	}
 
@@ -211,10 +283,9 @@ export class DevToolsStore extends BaseStore {
 	connectToDevTools() {
 		// Reset state on connect
 		this.port = Browser.runtime.connect({ name: 'devtools' });
-		this.isDebuggerAttached = false;
 		this.messages = [];
 
-		console.log('DevTools connected, setting initial debugger state to detached');
+		console.log('DevTools connected');
 
 		this.port.postMessage({ action: 'getMessages' });
 
@@ -229,42 +300,8 @@ export class DevToolsStore extends BaseStore {
 		};
 	}
 
-	@action
-	toggleDebugger() {
-		if (this.isDebuggerAttached) {
-			this.detachDebugger();
-		} else {
-			this.attachDebugger();
-		}
-	}
-
-	@action
-	attachDebugger() {
-		if (this.port && !this.isDebuggerAttached) {
-			console.log('Attaching debugger');
-			this.port.postMessage({ action: 'attachDebugger' });
-			// Don't set isDebuggerAttached here - wait for confirmation from background script
-		}
-	}
-
-	@action
-	detachDebugger() {
-		if (this.port && this.isDebuggerAttached) {
-			console.log('Detaching debugger');
-			this.port.postMessage({ action: 'detachDebugger' });
-			// Don't set isDebuggerAttached here - wait for confirmation from background script
-		}
-	}
-
 	private handlePortMessage = (message: any) => {
 		console.log('Received message from background:', JSON.stringify(message));
-
-		if (message.debuggerStatus !== undefined) {
-			console.log(`Setting debugger status to: ${message.debuggerStatus}`);
-			runInAction(() => {
-				this.isDebuggerAttached = message.debuggerStatus === 'attached';
-			});
-		}
 
 		if (message.messages) {
 			const processedMessages = message.messages
@@ -342,4 +379,44 @@ export class DevToolsStore extends BaseStore {
 			this.newMessages = [];
 		});
 	}, 1000);
+
+	// Get current tab ID from the browser
+	private async getCurrentTabId() {
+		try {
+			// Use browser API to get current tab
+			const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+			if (tabs.length > 0 && tabs[0].id) {
+				this.currentTabId = tabs[0].id;
+				// Re-filter messages
+				this.filterMessages();
+			}
+		} catch (error) {
+			console.error('Error getting current tab:', error);
+		}
+	}
+
+	// Filter messages according to current filter settings and tab ID
+	@action
+	private filterMessages() {
+		// Apply the filters using the existing computed filteredMessages getter
+		// This just forces a re-evaluation of the computed property
+		this._forceUpdate();
+	}
+	
+	@action
+	private _forceUpdate() {
+		// Force mobx to re-evaluate computed properties
+		this.messages = [...this.messages];
+	}
+	
+	// Check if a message contains the search term
+	private messageMatchesSearch(message: Message, searchTerm: string): boolean {
+		// Create a searchable string from all message fields
+		const searchString = this.createSearchString(message);
+		const normalizedSearchString = this.normalizeText(searchString);
+		const normalizedTerm = this.normalizeText(searchTerm);
+
+		// Perform simple substring search
+		return this.performSearch(normalizedSearchString, normalizedTerm);
+	}
 }

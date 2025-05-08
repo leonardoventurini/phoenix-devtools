@@ -9,56 +9,69 @@ interface MessageDetailsProps {
 }
 
 export const MessageDetails: React.FC<MessageDetailsProps> = ({ message }) => {
-  // Format message data for display
-  const getFormattedMessageData = () => {
-    if (!message) return '';
-    
-    try {
-      // For WebSocket messages, try to parse as JSON
-      if (message.type === MessageType.WebSocket) {
-        const parsedData = JSON.parse(message.data);
-        return JSON.stringify(parsedData, null, 2);
-      } 
+  // Determine message direction
+  const directionText = message?.direction === MessageDirection.Inbound ? 'Received' : 'Sent';
+  
+  // Calculate message time
+  const messageTime = message ? new Date(message.timestamp).toLocaleString() : '';
+
+  // Try to parse and format the data
+  let formattedData = message?.data || '';
+  let parsedData: any = null;
+  let isJson = false;
+  let headers: Record<string, string> = {};
+  let url: string = '';
+  let method: string = '';
+  let status: number | string = '';
+  let statusText: string = '';
+
+  try {
+    if (!message) {
+      // No message available
+    }
+    // First check if we have pre-parsed data
+    else if (message.parsedData) {
+      parsedData = JSON.parse(message.parsedData);
+      isJson = true;
       
-      // For HTTP messages, try to parse it first
+      // Extract HTTP-specific data
       if (message.type === MessageType.Http) {
-        try {
-          const parsedData = JSON.parse(message.data);
-          
-          // Extract request/response based on direction
-          if (message.direction === MessageDirection.Inbound && parsedData.response) {
-            return JSON.stringify(parsedData.response, null, 2);
-          } else if (message.direction === MessageDirection.Outbound && parsedData.request) {
-            return JSON.stringify(parsedData.request, null, 2);
+        if (message.direction === MessageDirection.Inbound) {
+          // Try to extract response data
+          if (parsedData.headers) {
+            headers = parsedData.headers;
+          } else if (parsedData.responseInfo?.headers) {
+            headers = parsedData.responseInfo.headers;
           }
           
-          // Fallback to the full data
-          return JSON.stringify(parsedData, null, 2);
-        } catch (e) {
-          // If not valid JSON, return as is
-          return message.data;
+          url = parsedData.url || parsedData.responseInfo?.url || '';
+          status = parsedData.status || parsedData.responseInfo?.status || '';
+          statusText = parsedData.statusText || parsedData.responseInfo?.statusText || '';
+        } else {
+          // Try to extract request data
+          if (parsedData.headers) {
+            headers = parsedData.headers;
+          } else if (parsedData.requestInfo?.headers) {
+            headers = parsedData.requestInfo.headers;
+          }
+          
+          url = parsedData.url || parsedData.requestInfo?.url || '';
+          method = parsedData.method || parsedData.requestInfo?.method || '';
         }
       }
-      
-      // Default case
-      return message.data;
-    } catch (e) {
-      // If parsing fails, return as is
-      return message.data;
+    } else {
+      // Otherwise try to parse the raw data
+      parsedData = JSON.parse(message.data);
+      isJson = true;
     }
-  };
-
-  // Determine if content is JSON
-  const isJsonContent = () => {
-    if (!message) return false;
     
-    try {
-      JSON.parse(message.data);
-      return true;
-    } catch (e) {
-      return false;
+    // Format the JSON for display
+    if (parsedData) {
+      formattedData = JSON.stringify(parsedData, null, 2);
     }
-  };
+  } catch (e) {
+    // Not valid JSON, keep original
+  }
 
   return (
     <div className="h-full">
@@ -67,7 +80,7 @@ export const MessageDetails: React.FC<MessageDetailsProps> = ({ message }) => {
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-sm font-medium text-gray-200">Direction:</span>
-              <span className="text-sm text-gray-300">{message.direction}</span>
+              <span className="text-sm text-gray-300">{directionText}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm font-medium text-gray-200">Size:</span>
@@ -75,20 +88,59 @@ export const MessageDetails: React.FC<MessageDetailsProps> = ({ message }) => {
             </div>
             <div className="flex justify-between">
               <span className="text-sm font-medium text-gray-200">Time:</span>
-              <span className="text-sm text-gray-300">{new Date(message.timestamp).toLocaleString()}</span>
+              <span className="text-sm text-gray-300">{messageTime}</span>
             </div>
+            
+            {/* HTTP-specific information */}
+            {message.type === MessageType.Http && (
+              <>
+                {url && (
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium text-gray-200">URL:</span>
+                    <span className="text-sm text-gray-300 max-w-[70%] truncate text-right">{url}</span>
+                  </div>
+                )}
+                
+                {method && (
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium text-gray-200">Method:</span>
+                    <span className="text-sm text-gray-300">{method}</span>
+                  </div>
+                )}
+                
+                {status && (
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium text-gray-200">Status:</span>
+                    <span className="text-sm text-gray-300">{status} {statusText}</span>
+                  </div>
+                )}
+                
+                {Object.keys(headers).length > 0 && (
+                  <div className="mt-2">
+                    <div className="text-sm font-medium text-gray-200 mb-1">Headers:</div>
+                    <div className="text-xs bg-slate-800 p-2 rounded-md overflow-auto max-h-24">
+                      {Object.entries(headers).map(([key, value]) => (
+                        <div key={key} className="flex items-start mb-1">
+                          <span className="font-medium text-blue-400 min-w-[120px] mr-2">{key}:</span>
+                          <span className="text-gray-300 break-all">{String(value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
       <div className="h-[calc(100%-6rem)] overflow-auto">
         {(() => {
-          const formattedData = getFormattedMessageData();
           return formattedData ? (
             <CodeMirror
               value={formattedData}
               height="100%"
               theme={atomone}
-              extensions={isJsonContent() ? [json()] : []}
+              extensions={isJson ? [json()] : []}
               readOnly={true}
               basicSetup={{
                 lineNumbers: true,

@@ -7,14 +7,12 @@ import { useDevToolsStore } from '../../hooks/use-devtools-store';
 import { 
   IconRefresh, 
   IconTrash, 
-  IconBug, 
-  IconBugOff, 
   IconSearch, 
   IconFilter, 
   IconFilterOff, 
   IconArrowDown, 
   IconArrowUp, 
-  IconArrowsUpDown 
+  IconArrowsUpDown
 } from '@tabler/icons-react';
 import { NavButton } from '../ui/nav-button';
 import { MessageList } from './message-list';
@@ -43,11 +41,6 @@ export const DevToolsPanel = observer(() => {
     location.reload();
   };
 
-  const handleToggleDebugger = () => {
-    console.log(`Toggling debugger. Current state: ${store.isDebuggerAttached ? 'attached' : 'detached'}`);
-    store.toggleDebugger();
-  };
-
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchTerm(value);
@@ -64,25 +57,7 @@ export const DevToolsPanel = observer(() => {
 
   return (
     <div className="bg-slate-700 h-screen p-0 flex flex-col overflow-hidden">
-      <div className="flex w-full justify-between h-8">
-        <NavButton
-          variant={store.isDebuggerAttached ? 'warning' : 'primary'}
-          onClick={handleToggleDebugger}
-          square
-        >
-          {store.isDebuggerAttached ? (
-            <>
-              <IconBugOff className="size-4 mr-1" />
-              Stop Debugger
-            </>
-          ) : (
-            <>
-              <IconBug className="size-4 mr-1" />
-              Start Debugger
-            </>
-          )}
-        </NavButton>
-        
+      <div className="flex w-full justify-end h-8">
         <NavButton
           variant='info'
           onClick={handleReload}
@@ -98,7 +73,7 @@ export const DevToolsPanel = observer(() => {
       </div>
 
       <div className="flex w-full justify-between items-center h-8">
-        <div className="flex items-center ml-1 gap-2">
+        <div className="flex items-center">
           <div className="relative flex items-center">
             <IconSearch className="absolute left-2 size-4 text-slate-400" />
             <input
@@ -109,6 +84,8 @@ export const DevToolsPanel = observer(() => {
               className="pl-8 pr-2 py-1 h-8 bg-slate-800 text-white hover:bg-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
             />
           </div>
+
+          <Separator />
           
           <div className="flex gap-px">
             <NavButton
@@ -133,24 +110,6 @@ export const DevToolsPanel = observer(() => {
               <IconArrowUp className="size-4" />
             </NavButton>
           </div>
-          
-          <NavButton
-            variant={store.showPhoenixOnly ? 'success' : 'secondary'}
-            onClick={handleTogglePhoenixFilter}
-            square
-          >
-            {store.showPhoenixOnly ? (
-              <>
-                <IconFilterOff className="size-4 mr-1" />
-                All
-              </>
-            ) : (
-              <>
-                <IconFilter className="size-4 mr-1" />
-                Phoenix
-              </>
-            )}
-          </NavButton>
         </div>
         
         <NavButton
@@ -165,3 +124,10 @@ export const DevToolsPanel = observer(() => {
     </div>
   );
 }); 
+
+
+function Separator() {
+  return (
+    <div className="w-px h-full bg-slate-600" />
+  )
+}

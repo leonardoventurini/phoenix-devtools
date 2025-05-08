@@ -1,6 +1,4 @@
-## Phoenix DevTools
-
-[WIP] ...
+🚧 Experimental Phoenix DevTools for Chrome 🚧
 
 ## License
 

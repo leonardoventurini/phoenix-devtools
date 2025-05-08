@@ -17,7 +17,6 @@
   "permissions": [
     "activeTab",
     "webRequest",
-    "debugger",
     "storage"
   ],
   "content_scripts": [
@@ -43,9 +42,10 @@
     {
       "resources": [
         "contentStyle.css",
-        "public/logo.png"
+        "public/logo.png",
+        "injected-script.js"
       ],
-      "matches": []
+      "matches": ["<all_urls>"]
     }
   ]
 }

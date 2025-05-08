@@ -52,21 +52,83 @@ export const MessageRow: React.FC<MessageRowProps> = ({ message, isNew, onMessag
       parsedData = { error: "Unable to parse data" };
     }
 
-    if (isInbound && parsedData.response) {
-      const { url, status, statusText } = parsedData.response;
-      label = `${status} ${statusText}`;
-      details = url || 'Unknown URL';
-    } else if (!isInbound && parsedData.request) {
-      const { url, method } = parsedData.request;
-      label = method || 'Unknown';
-      details = url || 'Unknown URL';
+    // Logic for handling different response formats
+    if (isInbound) {
+      // Response message
+      if (parsedData.status !== undefined) {
+        // Direct response object format
+        label = `${parsedData.status} ${parsedData.statusText || ''}`;
+        details = parsedData.url || 'Unknown URL';
+      } else if (parsedData.responseInfo) {
+        // Nested responseInfo format
+        const { status, statusText, url } = parsedData.responseInfo;
+        label = `${status} ${statusText || ''}`;
+        details = url || 'Unknown URL';
+      } else {
+        // Generic fallback
+        label = 'Response';
+        details = parsedData.url || 'Unknown URL';
+      }
     } else {
-      label = isInbound ? 'Response' : 'Request';
-      details = 'Unknown URL';
+      // Request message
+      if (parsedData.method !== undefined) {
+        // Direct request object format
+        label = parsedData.method || 'Unknown Method';
+        details = parsedData.url || 'Unknown URL';
+      } else if (parsedData.requestInfo) {
+        // Nested requestInfo format
+        const { method, url } = parsedData.requestInfo;
+        label = method || 'Unknown Method';
+        details = url || 'Unknown URL'; 
+      } else {
+        // Generic fallback
+        label = 'Request';
+        details = parsedData.url || 'Unknown URL';
+      }
     }
     
     typeLabel = 'HTTP';
   }
+  
+  // Try to extract Phoenix-specific details
+  let phoenixDetails = '';
+  let phoenixEventType = '';
+  
+  if (message.isPhoenix) {
+    try {
+      // Try to use parsedData if available
+      if (message.parsedData) {
+        const parsed = JSON.parse(message.parsedData);
+        
+        // Handle Phoenix array format: ["3","3","phoenix:live_reload","phx_join",{}]
+        if (Array.isArray(parsed) && parsed.length >= 4) {
+          phoenixEventType = parsed[3]; // Event type
+          phoenixDetails = `${parsed[2]} → ${parsed[3]}`; // Topic and event
+        } 
+        // Handle object format with topic and event
+        else if (parsed.topic && parsed.event) {
+          phoenixEventType = parsed.event;
+          phoenixDetails = `${parsed.topic} → ${parsed.event}`;
+        }
+      } else {
+        // Fall back to trying to parse the data directly
+        const parsed = JSON.parse(message.data);
+        
+        if (Array.isArray(parsed) && parsed.length >= 4) {
+          phoenixEventType = parsed[3];
+          phoenixDetails = `${parsed[2]} → ${parsed[3]}`;
+        } else if (parsed.topic && parsed.event) {
+          phoenixEventType = parsed.event;
+          phoenixDetails = `${parsed.topic} → ${parsed.event}`;
+        }
+      }
+    } catch (e) {
+      // If parsing fails, use empty string
+    }
+  }
+  
+  // Use Phoenix-specific details if available, otherwise use generic details
+  details = phoenixDetails || details;
   
   return (
     <div 
@@ -106,6 +168,9 @@ export const MessageRow: React.FC<MessageRowProps> = ({ message, isNew, onMessag
         {isWebSocket && message.isPhoenix && (
           <span className="px-1 py-0.5 text-[10px] rounded-full bg-purple-900 text-purple-300 mr-1">
             PHX
+            {phoenixEventType && (
+              <span className="ml-1">{phoenixEventType.replace('phx_', '')}</span>
+            )}
           </span>
         )}
         

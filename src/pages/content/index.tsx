@@ -1,5 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import './style.css' 
+import { Message, MessageType, MessageDirection } from '../../components/devtools/types';
+
 const div = document.createElement('div');
 div.id = '__root';
 document.body.appendChild(div);
@@ -13,8 +15,227 @@ root.render(
   </div>
 );
 
+// Function to safely stringify data
+function safeStringify(data: any): string {
+  try {
+    return JSON.stringify(data);
+  } catch (e) {
+    return String(data);
+  }
+}
+
+// Function to intercept Phoenix LiveView messages
+function interceptPhoenixMessages() {
+  // Instead of injecting an inline script, we'll use a more CSP-friendly approach
+  // by communicating with the page through a custom event system
+
+  // Set up listeners for our custom events from the page
+  setupPageToContentScriptEvents();
+
+  // Create a script element that points to our injected script
+  const script = document.createElement('script');
+  script.src = chrome.runtime.getURL('injected-script.js');
+  script.onload = function() {
+    // Clean up once loaded
+    script.remove();
+    // Signal to start the interception with the current tab ID
+    chrome.runtime.sendMessage({ action: 'get-current-tab-id' }, function(response) {
+      if (response && response.tabId) {
+        window.dispatchEvent(new CustomEvent('phx-devtools:start-interception', {
+          detail: { tabId: response.tabId }
+        }));
+      } else {
+        // Fallback if we can't get the tab ID
+        window.dispatchEvent(new CustomEvent('phx-devtools:start-interception'));
+      }
+    });
+  };
+  
+  // Add the script to the page
+  (document.head || document.documentElement).appendChild(script);
+  
+  // Try to find liveSocket repeatedly until found
+  window.addEventListener('phoenix:devtools:ready', () => {
+    console.log('Phoenix LiveSocket intercepted successfully');
+  });
+  
+  // Listen for not found event
+  window.addEventListener('phoenix:devtools:not-found', () => {
+    // Try again after a delay
+    console.log('Phoenix LiveSocket not found, will continue checking');
+    setTimeout(() => {
+      chrome.runtime.sendMessage({ action: 'get-current-tab-id' }, function(response) {
+        if (response && response.tabId) {
+          window.dispatchEvent(new CustomEvent('phx-devtools:start-interception', {
+            detail: { tabId: response.tabId }
+          }));
+        } else {
+          window.dispatchEvent(new CustomEvent('phx-devtools:start-interception'));
+        }
+      });
+    }, 1000);
+  });
+}
+
+// Set up event listeners for custom events from the page
+function setupPageToContentScriptEvents() {
+  // Listen for Phoenix connection info
+  window.addEventListener('phoenix:connection:info', ((event: Event) => {
+    const customEvent = event as CustomEvent;
+    console.log('Phoenix connection info', customEvent);
+    const connectionInfo = customEvent.detail?.connectionInfo;
+    const tabId = customEvent.detail?.tabId;
+    
+    // Send to background script
+    chrome.runtime.sendMessage({ 
+      action: 'phoenix-connection-info', 
+      connectionInfo,
+      tabId
+    });
+  }) as EventListener);
+  
+  // Listen for channel updates
+  window.addEventListener('phoenix:channels:updated', ((event: Event) => {
+    const customEvent = event as CustomEvent;
+    const channels = customEvent.detail.channels;
+    const tabId = customEvent.detail.tabId;
+    
+    // Send to background script
+    chrome.runtime.sendMessage({ 
+      action: 'phoenix-channels-updated', 
+      channels,
+      tabId
+    });
+  }) as EventListener);
+  
+  // Listen for outbound messages
+  window.addEventListener('phoenix:message:outbound', ((event: Event) => {
+    const customEvent = event as CustomEvent;
+    const { data, parsedData, tabId } = customEvent.detail;
+    
+    const message: Partial<Message> = {
+      method: 'Phoenix.send',
+      data: safeStringify(data),
+      parsedData: safeStringify(parsedData),
+      type: MessageType.WebSocket,
+      direction: MessageDirection.Outbound,
+      size: new TextEncoder().encode(data).length,
+      isPhoenix: true,
+      timestamp: Date.now(),
+      tabId
+    };
+    
+    // Send to background script
+    chrome.runtime.sendMessage({ action: 'phoenix-message', message });
+  }) as EventListener);
+  
+  // Listen for inbound messages
+  window.addEventListener('phoenix:message:inbound', ((event: Event) => {
+    const customEvent = event as CustomEvent;
+    const { data, parsedData, tabId } = customEvent.detail;
+    
+    const message: Partial<Message> = {
+      method: 'Phoenix.receive',
+      data: safeStringify(data),
+      parsedData: safeStringify(parsedData),
+      type: MessageType.WebSocket,
+      direction: MessageDirection.Inbound,
+      size: new TextEncoder().encode(data).length,
+      isPhoenix: true,
+      timestamp: Date.now(),
+      tabId
+    };
+    
+    // Send to background script
+    chrome.runtime.sendMessage({ action: 'phoenix-message', message });
+  }) as EventListener);
+
+  // Listen for HTTP outbound requests
+  window.addEventListener('phoenix:http:outbound', ((event: Event) => {
+    const customEvent = event as CustomEvent;
+    const { requestInfo, tabId } = customEvent.detail;
+    
+    // Check if requestInfo is valid
+    if (!requestInfo || typeof requestInfo !== 'object') {
+      console.error('Invalid request info received', requestInfo);
+      return;
+    }
+    
+    const message: Partial<Message> = {
+      method: `HTTP.${requestInfo.method || 'REQUEST'}`,
+      data: safeStringify(requestInfo),
+      parsedData: safeStringify(requestInfo),
+      type: MessageType.Http,
+      direction: MessageDirection.Outbound,
+      size: new TextEncoder().encode(JSON.stringify(requestInfo)).length,
+      isPhoenix: true, // Mark all as Phoenix for now, filtering can happen in devtools
+      timestamp: Date.now(),
+      tabId
+    };
+    
+    // Send to background script
+    chrome.runtime.sendMessage({ action: 'phoenix-message', message });
+  }) as EventListener);
+  
+  // Listen for HTTP inbound responses
+  window.addEventListener('phoenix:http:inbound', ((event: Event) => {
+    const customEvent = event as CustomEvent;
+    const { responseInfo, tabId } = customEvent.detail;
+    
+    // Check if responseInfo is valid
+    if (!responseInfo || typeof responseInfo !== 'object') {
+      console.error('Invalid response info received', responseInfo);
+      return;
+    }
+    
+    const message: Partial<Message> = {
+      method: `HTTP.Response.${responseInfo.status || 'UNKNOWN'}`,
+      data: safeStringify(responseInfo),
+      parsedData: safeStringify(responseInfo),
+      type: MessageType.Http,
+      direction: MessageDirection.Inbound,
+      size: new TextEncoder().encode(JSON.stringify(responseInfo)).length,
+      isPhoenix: true, // Mark all as Phoenix for now, filtering can happen in devtools
+      timestamp: Date.now(),
+      tabId
+    };
+    
+    // Send to background script
+    chrome.runtime.sendMessage({ action: 'phoenix-message', message });
+  }) as EventListener);
+  
+  // Listen for HTTP errors
+  window.addEventListener('phoenix:http:error', ((event: Event) => {
+    const customEvent = event as CustomEvent;
+    const errorInfo = customEvent.detail;
+    const tabId = customEvent.detail.tabId;
+    
+    // Check if errorInfo is valid
+    if (!errorInfo || typeof errorInfo !== 'object') {
+      console.error('Invalid error info received', errorInfo);
+      return;
+    }
+    
+    const message: Partial<Message> = {
+      method: 'HTTP.Error',
+      data: safeStringify(errorInfo),
+      parsedData: safeStringify(errorInfo),
+      type: MessageType.Http,
+      direction: MessageDirection.Inbound,
+      size: new TextEncoder().encode(JSON.stringify(errorInfo)).length,
+      isPhoenix: true, // Mark all as Phoenix for now, filtering can happen in devtools
+      timestamp: Date.now(),
+      tabId
+    };
+    
+    // Send to background script
+    chrome.runtime.sendMessage({ action: 'phoenix-message', message });
+  }) as EventListener);
+}
+
 try {
-  console.log('content script loaded');
+  console.log('Phoenix DevTools content script loaded');
+  interceptPhoenixMessages();
 } catch (e) {
-  console.error(e);
+  console.error('Error initializing Phoenix DevTools:', e);
 }
