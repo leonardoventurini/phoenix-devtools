@@ -1269,13 +1269,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/chrome@npm:^0.0.309":
-  version: 0.0.309
-  resolution: "@types/chrome@npm:0.0.309"
+"@types/chrome@npm:^0.0.320":
+  version: 0.0.320
+  resolution: "@types/chrome@npm:0.0.320"
   dependencies:
     "@types/filesystem": "npm:*"
     "@types/har-format": "npm:*"
-  checksum: 10c0/3d834abd153d7a46916f73aa41b0151ec14cf1ea9ece2de81a206d8d71a25975a06109e3b5b98cd943775614e4fb4dddbff88bc5096f78667889231638d3e7c8
+  checksum: 10c0/0f62648f79910ccd52ccf5e4868f61d7b28e1d6beb3a252c0d16da73b18e1a91ccef4d00e7d08dbe768b09971a5d1cb10b86cece8df8b2c366f281b6caf0cd2a
   languageName: node
   linkType: hard
 
@@ -6663,7 +6663,7 @@ __metadata:
     "@crxjs/vite-plugin": "npm:^2.0.0-beta.32"
     "@tabler/icons-react": "npm:^3.31.0"
     "@tailwindcss/vite": "npm:^4.0.12"
-    "@types/chrome": "npm:^0.0.309"
+    "@types/chrome": "npm:^0.0.320"
     "@types/lodash": "npm:^4.17.16"
     "@types/node": "npm:^22.13.9"
     "@types/react": "npm:^19.0.10"
