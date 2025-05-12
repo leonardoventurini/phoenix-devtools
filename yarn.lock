@@ -6247,10 +6247,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tailwindcss@npm:4.0.12, tailwindcss@npm:^4.0.9":
+"tailwindcss@npm:4.0.12":
   version: 4.0.12
   resolution: "tailwindcss@npm:4.0.12"
   checksum: 10c0/186e94e49b97e974daf999c350bfc50e727039f22c44baf9144b987b6c9b754bc983e8c9ef5b99a3ca2d399115eb7811967f66cf9e88edc08ac729746d80dc56
+  languageName: node
+  linkType: hard
+
+"tailwindcss@npm:^4.1.6":
+  version: 4.1.6
+  resolution: "tailwindcss@npm:4.1.6"
+  checksum: 10c0/de5a442d23d20872bfccb2b451720e8031dde27e1984a1ccb1d8c7308915213f1b3b62724ce5176d1b7031fbedc6a75fe844b73e3f13443141c11739447d8808
   languageName: node
   linkType: hard
 
@@ -6695,7 +6702,7 @@ __metadata:
     react-window: "npm:^1.8.11"
     sass-embedded: "npm:^1.86.0"
     tailwind-merge: "npm:^3.0.2"
-    tailwindcss: "npm:^4.0.9"
+    tailwindcss: "npm:^4.1.6"
     ts-node: "npm:^10.9.2"
     typescript: "npm:^5.7.3"
     vite: "npm:^6.1.0"
