@@ -1,4 +1,10 @@
+<img src="assets/banner.jpg" />
+<br/>
+<br/>
+
+<div style="text-align:center">
 🚧 Experimental Phoenix DevTools for Chrome 🚧
+</div>
 
 ## Contributing
 

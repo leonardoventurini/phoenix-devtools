@@ -1,5 +1,17 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
-.your-class {
-    color: aliceblue;
+.phx-devtools-highlight {
+  position: relative;
+  background-color: rgba(59, 130, 246, 0.5) !important;
+  transition:
+    background-color 0.3s ease-out,
+    outline 0.3s ease-out;
+}
+
+.phx-devtools-highlight-inbound {
+  background-color: rgba(59, 130, 246, 0.5) !important;
+}
+
+.phx-devtools-highlight-outbound {
+  background-color: rgba(59, 130, 246, 0.5) !important;
 }

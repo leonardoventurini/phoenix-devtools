@@ -75,7 +75,7 @@ export function Drawer({
               'fixed inset-y-0 z-[100000] m-0 flex w-full',
               drawerClassName,
               position === 'right' ? 'right-0' : 'left-0',
-              size === DrawerSize.Small ? 'max-w-sm' : 'max-w-[960px]',
+              size === DrawerSize.Small ? 'max-w-sm' : 'max-w-[960px]'
             )}
             ref={ref}
             initial={{
@@ -99,46 +99,42 @@ export function Drawer({
             <div
               className={cn(
                 'flex h-screen w-full flex-col divide-y divide-gray-200 border-gray-100 bg-white shadow-xl dark:divide-slate-500/50 dark:border-slate-600 dark:bg-slate-700',
-                position === 'right' ? 'border-l' : 'border-r',
+                position === 'right' ? 'border-l' : 'border-r'
               )}
             >
-              <div className='flex max-h-full min-h-0 flex-1 flex-col'>
-                <div className='border-b border-gray-100 bg-gray-50 p-4 dark:border-slate-600 dark:bg-slate-700'>
-                  <div className='flex items-center justify-between'>
-                    <div className='mb-0 text-base font-semibold leading-6 text-gray-900 dark:text-gray-300'>
+              <div className="flex max-h-full min-h-0 flex-1 flex-col">
+                <div className="border-b border-gray-100 bg-gray-50 p-4 dark:border-slate-600 dark:bg-slate-700">
+                  <div className="flex items-center justify-between">
+                    <div className="mb-0 text-base font-semibold leading-6 text-gray-900 dark:text-gray-300">
                       {title}
                     </div>
-                    <div className='ml-3 flex h-7 items-center gap-4'>
+                    <div className="ml-3 flex h-7 items-center gap-4">
                       <button
-                        type='button'
-                        className='rounded-md bg-transparent text-gray-400 hover:text-gray-500 focus:outline-none'
+                        type="button"
+                        className="rounded-md bg-transparent text-gray-400 hover:text-gray-500 focus:outline-none"
                         onClick={() => setPinned(!isPinned)}
                       >
-                        <span className='sr-only'>
-                          Pin Drawer
-                        </span>
+                        <span className="sr-only">Pin Drawer</span>
                         {pin ? (
                           isPinned ? (
-                            <IconPinned className='h-6 w-6' />
+                            <IconPinned className="h-6 w-6" />
                           ) : (
-                            <IconPin className='h-6 w-6' />
+                            <IconPin className="h-6 w-6" />
                           )
                         ) : null}
                       </button>
 
                       <button
-                        type='button'
-                        className='rounded-md bg-transparent text-gray-400 hover:text-gray-500 focus:outline-none'
-                        onClickCapture={e => {
+                        type="button"
+                        className="rounded-md bg-transparent text-gray-400 hover:text-gray-500 focus:outline-none"
+                        onClickCapture={(e) => {
                           e.stopPropagation()
                           onClose?.()
                         }}
                       >
-                        <span className='sr-only'>
-                          Close Drawer
-                        </span>
+                        <span className="sr-only">Close Drawer</span>
 
-                        <IconX className='size-6' aria-hidden='true' />
+                        <IconX className="size-6" aria-hidden="true" />
                       </button>
                     </div>
                   </div>
