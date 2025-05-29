@@ -13,10 +13,9 @@ document.body.appendChild(div);
 const rootContainer = document.querySelector("#__root");
 if (!rootContainer) throw new Error("Can't find Content root element");
 const root = createRoot(rootContainer);
+
 root.render(
-  <div className="fixed bottom-0 left-0 text-lg text-black bg-amber-400 z-50">
-    Phoenix DevTools
-  </div>
+  <div className="hidden fixed bottom-0 left-0 text-lg text-black bg-amber-400 z-50"></div>
 );
 
 // Highlight management
@@ -38,28 +37,6 @@ class ElementHighlighter {
         : "phx-devtools-highlight-outbound";
 
     element.classList.add("phx-devtools-highlight", directionClass);
-
-    if (eventType) {
-      const label = document.createElement("div");
-      label.className = `phx-devtools-label phx-devtools-label-${
-        direction === MessageDirection.Inbound ? "inbound" : "outbound"
-      }`;
-      label.textContent = `PHX: ${eventType}`;
-      label.style.position = "absolute";
-      label.style.zIndex = "10001";
-
-      const rect = element.getBoundingClientRect();
-      label.style.top = `${rect.top + window.scrollY - 25}px`;
-      label.style.left = `${rect.left + window.scrollX}px`;
-
-      document.body.appendChild(label);
-
-      setTimeout(() => {
-        if (label.parentNode) {
-          label.parentNode.removeChild(label);
-        }
-      }, 2000);
-    }
 
     setTimeout(() => {
       this.removeHighlight(element);
