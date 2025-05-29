@@ -3,3 +3,98 @@
 .your-class {
     color: aliceblue;
 }
+
+/* Phoenix DevTools element highlighting */
+.phx-devtools-highlight {
+    position: relative;
+    animation: phx-devtools-pulse 1.5s ease-in-out;
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.6) !important;
+    background-color: rgba(34, 197, 94, 0.1) !important;
+    outline: 2px solid rgba(34, 197, 94, 0.8) !important;
+    outline-offset: 2px !important;
+}
+
+.phx-devtools-highlight-inbound {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.6) !important;
+    background-color: rgba(59, 130, 246, 0.1) !important;
+    outline: 2px solid rgba(59, 130, 246, 0.8) !important;
+}
+
+.phx-devtools-highlight-outbound {
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.6) !important;
+    background-color: rgba(249, 115, 22, 0.1) !important;
+    outline: 2px solid rgba(249, 115, 22, 0.8) !important;
+}
+
+.phx-devtools-highlight::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+    border: 2px solid rgba(34, 197, 94, 0.8);
+    border-radius: 4px;
+    pointer-events: none;
+    z-index: 10000;
+    animation: phx-devtools-border-pulse 1.5s ease-in-out;
+}
+
+.phx-devtools-highlight-inbound::before {
+    border-color: rgba(59, 130, 246, 0.8);
+}
+
+.phx-devtools-highlight-outbound::before {
+    border-color: rgba(249, 115, 22, 0.8);
+}
+
+@keyframes phx-devtools-pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.02);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes phx-devtools-border-pulse {
+    0%, 100% {
+        opacity: 0.8;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.01);
+    }
+}
+
+/* Label for highlighted elements */
+.phx-devtools-label {
+    position: absolute;
+    top: -20px;
+    left: 0;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 2px 6px;
+    font-size: 10px;
+    font-family: monospace;
+    border-radius: 3px;
+    z-index: 10001;
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.phx-devtools-label-inbound {
+    background: rgba(59, 130, 246, 0.9);
+}
+
+.phx-devtools-label-outbound {
+    background: rgba(249, 115, 22, 0.9);
+}

@@ -10,6 +10,118 @@
     checkForLiveSocket();
   });
 
+  // Extract DOM elements that might be affected by a Phoenix LiveView message
+  function extractAffectedElements(payload, eventType) {
+    const elements = [];
+    
+    if (!payload || typeof payload !== 'object') {
+      return elements;
+    }
+    
+    // Look for diff data (DOM updates)
+    if (payload.d) {
+      const diffs = Array.isArray(payload.d) ? payload.d : [payload.d];
+      
+      diffs.forEach(diff => {
+        if (Array.isArray(diff)) {
+          diff.forEach(item => {
+            if (typeof item === 'object' && item !== null) {
+              extractElementsFromDiffObject(item, elements);
+            }
+          });
+        } else if (typeof diff === 'object') {
+          extractElementsFromDiffObject(diff, elements);
+        }
+      });
+    }
+    
+    // Look for component updates
+    if (payload.c && typeof payload.c === 'object') {
+      Object.values(payload.c).forEach(component => {
+        if (component && typeof component === 'object') {
+          extractElementsFromDiffObject(component, elements);
+        }
+      });
+    }
+    
+    // Look for reply data (form submissions, etc.)
+    if (payload.r && typeof payload.r === 'object') {
+      Object.keys(payload.r).forEach(key => {
+        if (key.match(/^\d+$/)) {
+          const refElements = document.querySelectorAll(`[data-phx-ref="${key}"]`);
+          refElements.forEach(el => {
+            if (!elements.some(existing => existing.element === el)) {
+              elements.push({
+                element: el,
+                selector: `[data-phx-ref="${key}"]`,
+                type: 'reply'
+              });
+            }
+          });
+        }
+      });
+    }
+    
+    // Look for selectors in payload
+    if (payload.s && Array.isArray(payload.s)) {
+      payload.s.forEach(selector => {
+        try {
+          const selectedElements = document.querySelectorAll(selector);
+          selectedElements.forEach(el => {
+            if (!elements.some(existing => existing.element === el)) {
+              elements.push({
+                element: el,
+                selector: selector,
+                type: 'selector'
+              });
+            }
+          });
+        } catch (e) {
+          // Invalid selector
+        }
+      });
+    }
+    
+    return elements.map(item => ({
+      selector: item.selector,
+      type: item.type,
+      tagName: item.element.tagName,
+      id: item.element.id,
+      className: item.element.className
+    }));
+  }
+
+  function extractElementsFromDiffObject(diff, elements) {
+    Object.keys(diff).forEach(key => {
+      // Look for component IDs
+      if (key.startsWith('d-')) {
+        const cid = key.substring(2);
+        const componentElements = document.querySelectorAll(`[phx-component="${cid}"]`);
+        componentElements.forEach(el => {
+          if (!elements.some(existing => existing.element === el)) {
+            elements.push({
+              element: el,
+              selector: `[phx-component="${cid}"]`,
+              type: 'component'
+            });
+          }
+        });
+      } else if (key.match(/^\d+$/)) {
+        // Look for static or dynamic component references
+        const dataComponentElements = document.querySelectorAll(`[data-phx-component="${key}"]`);
+        dataComponentElements.forEach(el => {
+          if (!elements.some(existing => existing.element === el)) {
+            elements.push({
+              element: el,
+              selector: `[data-phx-component="${key}"]`,
+              type: 'component-ref'
+            });
+          }
+        });
+      }
+    });
+  }
+
   function checkForLiveSocket() {
     if (window.liveSocket) {
       const originalSend = window.liveSocket.socket.conn.send;
@@ -69,10 +181,26 @@
           parsedData = event.data;
         }
         
+        // Extract DOM elements that might be affected by this message
+        let affectedElements = [];
+        try {
+          if (Array.isArray(parsedData) && parsedData.length >= 4) {
+            const [, , topic, eventType, payload] = parsedData;
+            if (topic && topic.startsWith('lv:') && payload) {
+              affectedElements = extractAffectedElements(payload, eventType);
+            }
+          } else if (parsedData.topic && parsedData.topic.startsWith('lv:') && parsedData.payload) {
+            affectedElements = extractAffectedElements(parsedData.payload, parsedData.event);
+          }
+        } catch (e) {
+          // Ignore extraction errors
+        }
+        
         window.dispatchEvent(new CustomEvent('phoenix:message:inbound', {
           detail: { 
             data: event.data,
             parsedData,
+            affectedElements,
             tabId: currentTabId
           }
         }));
