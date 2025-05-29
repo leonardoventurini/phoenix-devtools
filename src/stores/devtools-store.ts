@@ -355,15 +355,26 @@ export class DevToolsStore extends BaseStore {
   private handlePortMessage = (message: any) => {
     console.log("Received message from background:", JSON.stringify(message));
 
-    if (message.messages) {
-      const processedMessages = message.messages
-        .map((msg: Message) => {
-          return { ...msg, isPhoenix: this.isPhoenixMessage(msg) };
-        })
-        .sort((a: Message, b: Message) => a.timestamp - b.timestamp);
+    if (message.messages !== undefined) {
+      // If messages is an empty array, this is a clear operation
+      if (message.messages.length === 0) {
+        runInAction(() => {
+          this.setMessages([]);
+          this.buffer = [];
+          this.newMessages = [];
+          this.inboundBytes = 0;
+          this.outboundBytes = 0;
+        });
+      } else {
+        const processedMessages = message.messages
+          .map((msg: Message) => {
+            return { ...msg, isPhoenix: this.isPhoenixMessage(msg) };
+          })
+          .sort((a: Message, b: Message) => a.timestamp - b.timestamp);
 
-      this.buffer.push(...processedMessages);
-      this.submitLogs();
+        this.buffer.push(...processedMessages);
+        this.submitLogs();
+      }
     }
 
     if (message.connections) {
