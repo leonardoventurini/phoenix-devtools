@@ -69,7 +69,7 @@ const navButtonVariants = cva(
       variant: 'default',
       size: 'default',
     },
-  },
+  }
 )
 
 type NavButtonProps = React.HTMLAttributes<HTMLElement> &
@@ -102,7 +102,7 @@ export const NavButton = forwardRef<any, NavButtonProps>(
       square,
       ...props
     },
-    ref,
+    ref
   ) => {
     const genericProps = {
       className: cn(
@@ -122,7 +122,7 @@ export const NavButton = forwardRef<any, NavButtonProps>(
           'bg-yellow-400/30 dark:bg-yellow-400/30':
             active && variant === 'warning',
         },
-        className,
+        className
       ),
       disabled,
       ...props,
@@ -130,25 +130,25 @@ export const NavButton = forwardRef<any, NavButtonProps>(
 
     const icon =
       Icon && !iconRight ? (
-        <Icon className='h-4 w-4' aria-hidden='true' />
+        <Icon className="h-4 w-4" aria-hidden="true" />
       ) : null
 
     const contents = (
       <>
         {loading ? (
-          <IconLoader className='h-4 w-4 animate-spin' aria-hidden='true' />
+          <IconLoader className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : (
           icon
         )}
 
         {collapsible ? (
-          <span className='hidden md:inline'>{children}</span>
+          <span className="hidden md:inline">{children}</span>
         ) : (
           children
         )}
 
         {Icon && iconRight ? (
-          <Icon className='h-4 w-4' aria-hidden='true' />
+          <Icon className="h-4 w-4" aria-hidden="true" />
         ) : null}
       </>
     )
@@ -162,11 +162,11 @@ export const NavButton = forwardRef<any, NavButtonProps>(
     }
 
     return (
-      <button type='button' ref={ref} {...genericProps}>
+      <button type="button" ref={ref} {...genericProps}>
         {contents}
       </button>
     )
-  },
+  }
 )
 
 NavButton.displayName = 'NavButton'

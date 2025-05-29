@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
-import { observer } from "mobx-react-lite";
+import React, { useEffect, useState } from 'react'
+import { observer } from 'mobx-react-lite'
 
-import { useWindowSize } from "./hooks";
-import { useDevToolsStore } from "../../hooks/use-devtools-store";
+import { useWindowSize } from './hooks'
+import { useDevToolsStore } from '../../hooks/use-devtools-store'
 import {
   IconRefresh,
   IconTrash,
@@ -12,51 +12,51 @@ import {
   IconArrowsUpDown,
   IconEye,
   IconEyeOff,
-} from "@tabler/icons-react";
-import { NavButton } from "../ui/nav-button";
-import { MessageList } from "./message-list";
-import { DirectionFilterType } from "../../stores/devtools-store";
+} from '@tabler/icons-react'
+import { NavButton } from '../ui/nav-button'
+import { MessageList } from './message-list'
+import { DirectionFilterType } from '../../stores/devtools-store'
 
-import "../../styles/index.scss";
+import '../../styles/index.scss'
 
 export const DevToolsPanel = observer(() => {
-  const store = useDevToolsStore();
-  const windowSize = useWindowSize({ width: 0, height: 64 });
-  const [searchTerm, setSearchTerm] = useState("");
+  const store = useDevToolsStore()
+  const windowSize = useWindowSize({ width: 0, height: 64 })
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     // Connect to background script and set up message listeners
-    const cleanup = store.connectToDevTools();
+    const cleanup = store.connectToDevTools()
 
     // Cleanup function
-    return cleanup;
-  }, [store]);
+    return cleanup
+  }, [store])
 
   const handleClear = () => {
-    store.clearMessages();
-  };
+    store.clearMessages()
+  }
 
   const handleReload = () => {
-    location.reload();
-  };
+    location.reload()
+  }
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchTerm(value);
-    store.setSearchTerm(value);
-  };
+    const value = e.target.value
+    setSearchTerm(value)
+    store.setSearchTerm(value)
+  }
 
   const handleTogglePhoenixFilter = () => {
-    store.togglePhoenixFilter();
-  };
+    store.togglePhoenixFilter()
+  }
 
   const handleSetDirectionFilter = (filter: DirectionFilterType) => {
-    store.setDirectionFilter(filter);
-  };
+    store.setDirectionFilter(filter)
+  }
 
   const handleToggleHighlighting = () => {
-    store.toggleHighlighting();
-  };
+    store.toggleHighlighting()
+  }
 
   return (
     <div className="bg-slate-700 h-screen p-0 flex flex-col overflow-hidden">
@@ -89,27 +89,27 @@ export const DevToolsPanel = observer(() => {
           <div className="flex gap-px">
             <NavButton
               variant={
-                store.directionFilter === "all" ? "success" : "secondary"
+                store.directionFilter === 'all' ? 'success' : 'secondary'
               }
-              onClick={() => handleSetDirectionFilter("all")}
+              onClick={() => handleSetDirectionFilter('all')}
               square
             >
               <IconArrowsUpDown className="size-4" />
             </NavButton>
             <NavButton
               variant={
-                store.directionFilter === "inbound" ? "success" : "secondary"
+                store.directionFilter === 'inbound' ? 'success' : 'secondary'
               }
-              onClick={() => handleSetDirectionFilter("inbound")}
+              onClick={() => handleSetDirectionFilter('inbound')}
               square
             >
               <IconArrowDown className="size-4" />
             </NavButton>
             <NavButton
               variant={
-                store.directionFilter === "outbound" ? "success" : "secondary"
+                store.directionFilter === 'outbound' ? 'success' : 'secondary'
               }
-              onClick={() => handleSetDirectionFilter("outbound")}
+              onClick={() => handleSetDirectionFilter('outbound')}
               square
             >
               <IconArrowUp className="size-4" />
@@ -119,13 +119,13 @@ export const DevToolsPanel = observer(() => {
           <Separator />
 
           <NavButton
-            variant={store.highlightingEnabled ? "success" : "secondary"}
+            variant={store.highlightingEnabled ? 'success' : 'secondary'}
             onClick={handleToggleHighlighting}
             square
             title={
               store.highlightingEnabled
-                ? "Disable element highlighting"
-                : "Enable element highlighting"
+                ? 'Disable element highlighting'
+                : 'Enable element highlighting'
             }
           >
             {store.highlightingEnabled ? (
@@ -142,9 +142,9 @@ export const DevToolsPanel = observer(() => {
         </NavButton>
       </div>
     </div>
-  );
-});
+  )
+})
 
 function Separator() {
-  return <div className="w-px h-full bg-slate-600" />;
+  return <div className="w-px h-full bg-slate-600" />
 }

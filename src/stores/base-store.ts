@@ -1,25 +1,25 @@
-import { observable, action, makeObservable } from 'mobx';
+import { observable, action, makeObservable } from 'mobx'
 
 export class BaseStore {
-	@observable isLoading = false;
-	@observable error: string | null = null;
+  @observable isLoading = false
+  @observable error: string | null = null
 
-	constructor() {
-		makeObservable(this);
-	}
+  constructor() {
+    makeObservable(this)
+  }
 
-	@action
-	setLoading(loading: boolean) {
-		this.isLoading = loading;
-	}
+  @action
+  setLoading(loading: boolean) {
+    this.isLoading = loading
+  }
 
-	@action
-	setError(error: string | null) {
-		this.error = error;
-	}
+  @action
+  setError(error: string | null) {
+    this.error = error
+  }
 
-	@action
-	clearError() {
-		this.error = null;
-	}
+  @action
+  clearError() {
+    this.error = null
+  }
 }
