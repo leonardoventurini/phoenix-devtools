@@ -2,6 +2,7 @@ import js from '@eslint/js'
 import react from 'eslint-plugin-react'
 import typescript from '@typescript-eslint/eslint-plugin'
 import typescriptParser from '@typescript-eslint/parser'
+import globals from 'globals'
 
 export default [
   js.configs.recommended,
@@ -17,6 +18,8 @@ export default [
         sourceType: 'module',
       },
       globals: {
+        ...globals.browser,
+        ...globals.node,
         chrome: 'readonly',
       },
     },
@@ -28,6 +31,7 @@ export default [
       ...react.configs.recommended.rules,
       ...typescript.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
   {

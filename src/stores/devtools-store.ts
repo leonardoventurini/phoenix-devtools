@@ -5,6 +5,7 @@ import {
   Message,
   MessageDirection,
   MessageType,
+  PhoenixConnection,
 } from '../components/devtools/types'
 import { debounce } from 'lodash'
 
@@ -111,7 +112,7 @@ export class DevToolsStore extends BaseStore {
       message.type,
       message.direction,
       message.isPhoenix ? 'phoenix' : '',
-      new Date(message.timestamp).toLocaleString(),
+      this.formatTimestamp(message.timestamp),
     ]
 
     // Try to extract more data from JSON if possible
@@ -126,6 +127,18 @@ export class DevToolsStore extends BaseStore {
     }
 
     return searchParts.filter(Boolean).join(' ').toLowerCase()
+  }
+
+  // Add formatTimestamp method to the store to match the display formatting
+  private formatTimestamp(timestamp: number): string {
+    const date = new Date(timestamp)
+    return date.toLocaleTimeString(undefined, {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      fractionalSecondDigits: 3,
+    })
   }
 
   // Simple substring search implementation that supports multiple terms
@@ -331,8 +344,6 @@ export class DevToolsStore extends BaseStore {
     this.port = Browser.runtime.connect({ name: 'devtools' })
     this.messages = []
 
-    console.log('DevTools connected')
-
     this.port.postMessage({ action: 'getMessages' })
 
     this.port.onMessage.addListener(this.handlePortMessage)
@@ -347,8 +358,6 @@ export class DevToolsStore extends BaseStore {
   }
 
   private handlePortMessage = (message: any) => {
-    console.log('Received message from background:', JSON.stringify(message))
-
     if (message.messages !== undefined) {
       // If messages is an empty array, this is a clear operation
       if (message.messages.length === 0) {
@@ -366,7 +375,17 @@ export class DevToolsStore extends BaseStore {
           })
           .sort((a: Message, b: Message) => a.timestamp - b.timestamp)
 
-        this.buffer.push(...processedMessages)
+        // Deduplicate messages using hash before adding to buffer
+        const existingHashes = new Set([
+          ...this.messages.map((m) => m.hash),
+          ...this.buffer.map((m) => m.hash),
+        ])
+
+        const newMessages = processedMessages.filter(
+          (msg: Message) => msg.hash && !existingHashes.has(msg.hash)
+        )
+
+        this.buffer.push(...newMessages)
         this.submitLogs()
       }
     }
@@ -382,7 +401,7 @@ export class DevToolsStore extends BaseStore {
   }
 
   @action
-  setConnections(connections: any[]) {
+  setConnections(connections: PhoenixConnection[]) {
     this.connections = connections
   }
 
@@ -411,6 +430,9 @@ export class DevToolsStore extends BaseStore {
     }
 
     this.messages.push(...this.buffer)
+
+    // Sort all messages by timestamp to maintain chronological order
+    this.messages.sort((a: Message, b: Message) => a.timestamp - b.timestamp)
 
     this.buffer = []
   }

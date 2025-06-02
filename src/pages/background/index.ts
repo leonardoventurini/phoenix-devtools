@@ -1,28 +1,42 @@
-import { Message } from '../../components/devtools/types'
+import { Message, PhoenixConnection } from '../../components/devtools/types'
 
 const MAX_MESSAGES = 10000
 
 // Store connected devtools ports
 const devToolsPorts: chrome.runtime.Port[] = []
 
-// Function to broadcast messages to all connected devtools panels
-function broadcastToDevTools(data: {
-  messages?: Message[] | null
-  connections?: any[] | null
-}) {
-  devToolsPorts.forEach((port) => {
-    port.postMessage(data)
-  })
+// Track last timestamp to ensure uniqueness
+let lastTimestamp = 0
+
+// Function to get unique timestamp (避ける - sakeru, meaning to avoid duplicates)
+function getUniqueTimestamp(): number {
+  const now = Date.now()
+  if (now <= lastTimestamp) {
+    lastTimestamp = lastTimestamp + 1
+    return lastTimestamp
+  }
+  lastTimestamp = now
+  return now
 }
 
 // Function to hash messages to create unique identifiers
 async function hashMessage(message: string): Promise<string> {
-  const encoder = new TextEncoder()
+  const encoder = new globalThis.TextEncoder()
   const data = encoder.encode(message)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', data)
   const hashArray = Array.from(new Uint8Array(hashBuffer))
   const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
   return hashHex
+}
+
+// Function to broadcast messages to all connected devtools panels
+function broadcastToDevTools(data: {
+  messages?: Message[] | null
+  connections?: PhoenixConnection[] | null
+}) {
+  devToolsPorts.forEach((port) => {
+    port.postMessage(data)
+  })
 }
 
 chrome.runtime.onConnect.addListener(function (port) {
@@ -89,10 +103,11 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (request.action === 'phoenix-message' && request.message) {
     // Hash the message
     hashMessage(JSON.stringify(request.message)).then((messageHash) => {
-      // Add the hash to the message and ensure tabId is set
+      // Add the hash to the message and ensure tabId is set with unique timestamp
       const message = {
         ...request.message,
         hash: messageHash,
+        timestamp: getUniqueTimestamp(),
         // Use tabId from message if available, otherwise from sender
         tabId: request.message.tabId || sender.tab?.id,
       }
@@ -135,11 +150,11 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     // Hash and store connection
     hashMessage(JSON.stringify(connectionInfo)).then((connectionHash) => {
       chrome.storage.local.get(['websocketConnections'], function (result) {
-        let connections = result.websocketConnections || []
+        let connections: PhoenixConnection[] = result.websocketConnections || []
 
         // Replace if same tab connection exists, add otherwise
         const tabIndex = connections.findIndex(
-          (conn: any) => conn.tabId === connectionInfo.tabId
+          (conn: PhoenixConnection) => conn.tabId === connectionInfo.tabId
         )
         if (tabIndex !== -1) {
           connections[tabIndex] = { ...connectionInfo, hash: connectionHash }
@@ -162,12 +177,12 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   ) {
     // Update channels for the current connection
     chrome.storage.local.get(['websocketConnections'], function (result) {
-      let connections = result.websocketConnections || []
+      let connections: PhoenixConnection[] = result.websocketConnections || []
 
       // Find the connection for this tab - use tabId from request if available
       const tabId = request.tabId || sender.tab?.id
       const tabIndex = connections.findIndex(
-        (conn: any) => conn.tabId === tabId
+        (conn: PhoenixConnection) => conn.tabId === tabId
       )
       if (tabIndex !== -1) {
         // Update the channels

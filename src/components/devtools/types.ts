@@ -21,7 +21,22 @@ export enum MessageDirection {
   Outbound = 'outbound',
 }
 
+export interface PhoenixConnection {
+  tabId?: number
+  timestamp: number
+  isPhoenix: boolean
+  hash: string
+  channels?: Array<{
+    topic: string
+    joinedOnce: boolean
+    state: string
+  }>
+  phxVersion?: string
+  params?: Record<string, unknown>
+  url?: string
+}
+
 export interface PortResponse {
   messages: Message[]
-  connections?: any[]
+  connections?: PhoenixConnection[]
 }
